@@ -51,11 +51,23 @@ def find_next_page_url(soup, current_url):
     except Exception as e:
         print(f"Sonraki sayfa linki bulunurken hata oluştu: {e}")
         return None
-
+def _clear_name(yazi):
+    # Temizlenecek kelimeler (büyük/küçük harfe duyarsız)
+    no_words = ['read', 'mtl', '-', 're:']
+    
+    # Tüm istenmeyen kelimeleri kaldır
+    for word in no_words:
+        yazi = yazi.lower().replace(word, '')
+    
+    # Özel karakterleri temizle ve baştaki/sondaki boşlukları al
+    safe_name = re.sub(r'[\\/*?:"<>|]', "", yazi).strip()
+    
+    return safe_name
+    
 def create_novel_directory(novel_name):
     ##Novel için klasör oluşturur."""
     # Geçersiz dosya adı karakterlerini temizle
-    safe_name = re.sub(r'[\\/*?:"<>|]', "", novel_name).strip()
+    safe_name = _clear_name(novel_name)
     
     # Mevcut çalışma dizinini göster
     current_dir = os.getcwd()
@@ -240,11 +252,24 @@ def translate_text_en_to_tr(text, control=None):
                         print("Çeviri duraklatıldı. Devam etmek için 'R' tuşuna basın.")
                         control.pause_event.wait()
                     print(f"Parça {i+1}/{len(chunks)} çevriliyor...")
-                    result.append(translator.translate(chunk))
-                    time.sleep(0.5)
+                    try:
+                        translated = translator.translate(chunk)
+                    except Exception as e:
+                        msg = str(e)
+                        short = msg[-200:] if len(msg) > 200 else msg
+                        print(f"Çeviri hatası (son 200): {short}")
+                        translated = chunk  # Hata veren parçayı orijinal hâliyle ekle
+                    result.append(translated)
+                    time.sleep(1)
                 return '\n'.join(result)
             else:
-                return translator.translate(text)
+                try:
+                    return translator.translate(text)
+                except Exception as e:
+                    msg = str(e)
+                    short = msg[-200:] if len(msg) > 200 else msg
+                    print(f"Çeviri hatası (son 200): {short}")
+                    return text  # Tek parça hatasında orijinal metni döndür
 
         elif TRANSLATOR_BACKEND == 'google':
             translator = GTTranslator()
@@ -259,16 +284,30 @@ def translate_text_en_to_tr(text, control=None):
                         print("Çeviri duraklatıldı. Devam etmek için 'R' tuşuna basın.")
                         control.pause_event.wait()
                     print(f"Parça {i+1}/{len(chunks)} çevriliyor...")
-                    result.append(translator.translate(chunk, src='en', dest='tr').text)
-                    time.sleep(0.5)
+                    try:
+                        translated = translator.translate(chunk, src='en', dest='tr').text
+                    except Exception as e:
+                        msg = str(e)
+                        short = msg[-200:] if len(msg) > 200 else msg
+                        print(f"Çeviri hatası (son 200): {short}")
+                        translated = chunk  # Hata veren parçayı orijinal hâliyle ekle
+                    result.append(translated)
+                    time.sleep(1)
                 return '\n'.join(result)
             else:
-                return translator.translate(text, src='en', dest='tr').text
+                try:
+                    return translator.translate(text, src='en', dest='tr').text
+                except Exception as e:
+                    msg = str(e)
+                    short = msg[-200:] if len(msg) > 200 else msg
+                    print(f"Çeviri hatası (son 200): {short}")
+                    return text  # Tek parça hatasında orijinal metni döndür
 
     except Exception as e:
-        print(f"Çeviri hatası: {e}")
-        return None
-
+        msg = str(e)
+        short = msg[-200:] if len(msg) > 200 else msg
+        print(f"Çeviri hatası (son 200): {short}")
+        return text  # Genel hatada da orijinal metinle akışı sürdür
 
 def list_untranslated_chapters(novel_dir):
     ##Çevrilmemiş bölümleri listeler.
@@ -360,10 +399,20 @@ def translate_chapters(novel_dir, chapters, control=None, start_from=0, limit=No
     chapters_to_translate = chapters[start_from:limit] if limit else chapters[start_from:]
     
     for i, (chapter_num, filename) in enumerate(chapters_to_translate):
+        # Çeviri menüsü talebi
+        if control and control.translate_event.is_set():
+            control.translate_event.clear()
+            print("\n[Çeviri menüsü açılıyor]")
+            show_translation_menu(novel_dir)
+            return total_translated
+        
         # Durdurma kontrolü
         if control and control.stop_event.is_set():
-            print("Çeviri durduruldu.")
-            break
+            last_chapter = chapters_to_translate[i-1][0] if i > 0 else 0
+            save_translation_progress(novel_dir, last_chapter, total_translated)
+            print("Çeviri durduruldu. İlerleme kaydedildi. Menüye dönülüyor.")
+            show_translation_menu(novel_dir)
+            return total_translated
         
         # Duraklatma kontrolü
         if control and not control.pause_event.is_set():
@@ -439,8 +488,13 @@ def show_translation_menu(novel_dir):
         print("1. Tek bölüm çevir")
         print("2. Bölüm aralığı çevir")
         print("3. Tüm çevrilmemiş bölümleri çevir")
+        print("M. Ana menüye dön")
         
-        choice = input("Seçiminiz (1/2/3): ").strip()
+        choice = input("Seçiminiz (1/2/3/M): ").strip()
+        
+        if choice.lower() == 'm':
+            print("Ana menüye dönülüyor...")
+            return
         
         control = Control()
         start_keyboard_listener(control)
@@ -587,11 +641,10 @@ def start_keyboard_listener(control):
                     ch = msvcrt.getch().decode('utf-8', errors='ignore').lower()
                     if ch == 'p':
                         if control.pause_event.is_set():
+                            print("\n[Zaten duraklatılmış - devam için 'R' tuşuna basın]")
+                        else:
                             control.pause_event.clear()
                             print("\n[Duraklatıldı - devam için 'R']")
-                        else:
-                            control.pause_event.set()
-                            print("\n[Devam ediliyor]")
                     elif ch == 'r':
                         control.pause_event.set()
                         print("\n[Devam ediliyor]")
@@ -669,6 +722,13 @@ def main():
                         save_progress(novel_dir, chapter_number, current_url)
                         break
 
+                    # Çeviri menüsü talebi varsa aç (kayıtlı romanlardan seçim)
+                    if control.translate_event.is_set():
+                        control.translate_event.clear()
+                        print("\n=== Çeviri Menüsü (Kayıtlı Romanlardan) ===")
+                        show_global_translation_menu()
+                        print("=== İndirmeye Dönülüyor ===\n")
+
                     # Durdurma talebi
                     if control.stop_event.is_set():
                         print("Durdurma talebi alındı. İlerleme kaydediliyor...")
@@ -677,13 +737,6 @@ def main():
 
                     # Duraklatma
                     control.pause_event.wait()
-
-                    # Çeviri menüsü talebi varsa aç (kayıtlı romanlardan seçim)
-                    if control.translate_event.is_set():
-                        control.translate_event.clear()
-                        print("\n=== Çeviri Menüsü (Kayıtlı Romanlardan) ===")
-                        show_global_translation_menu()
-                        print("=== İndirmeye Dönülüyor ===\n")
 
                     print(f"\nBölüm {chapter_number} işleniyor... ({pages_downloaded+1}/{page_limit if page_limit > 0 else '∞'})")
                     short_url = current_url.split('/')[-1] if '/' in current_url else current_url
