@@ -399,20 +399,12 @@ def translate_chapters(novel_dir, chapters, control=None, start_from=0, limit=No
     chapters_to_translate = chapters[start_from:limit] if limit else chapters[start_from:]
     
     for i, (chapter_num, filename) in enumerate(chapters_to_translate):
-        # Çeviri menüsü talebi
-        if control and control.translate_event.is_set():
-            control.translate_event.clear()
-            print("\n[Çeviri menüsü açılıyor]")
-            show_translation_menu(novel_dir)
-            return total_translated
-        
         # Durdurma kontrolü
         if control and control.stop_event.is_set():
             last_chapter = chapters_to_translate[i-1][0] if i > 0 else 0
             save_translation_progress(novel_dir, last_chapter, total_translated)
-            print("Çeviri durduruldu. İlerleme kaydedildi. Menüye dönülüyor.")
-            show_translation_menu(novel_dir)
-            return total_translated
+            print("Çeviri durduruldu. İlerleme kaydedildi. Ana menüye dönülüyor.")
+            return -1
         
         # Duraklatma kontrolü
         if control and not control.pause_event.is_set():
@@ -454,8 +446,8 @@ def show_translation_menu(novel_dir):
     print(f"\n[Çeviri] Novel: {os.path.basename(novel_dir)} | Çevrilmemiş bölüm sayısı: {total}")
     
     if total:
-        sample = ", ".join(f"chapter_{str(n).zfill(4)}" for n, _ in items[:10])
-        print(f"Örnek: {sample}{'...' if total>10 else ''}")
+        #sample = ", ".join(f"chapter_{str(n).zfill(4)}" for n, _ in items[:10])
+        #print(f"Örnek: {sample}{'...' if total>10 else ''}")
         
         show_all = input("Tam liste gösterilsin mi? (E/H): ").strip().lower()
         if show_all.startswith('e'):
@@ -481,6 +473,8 @@ def show_translation_menu(novel_dir):
                 
                 print("\nÇeviri başlıyor... (Duraklatmak için 'P', durdurmak için 'S' tuşuna basın)")
                 translated = translate_chapters(novel_dir, items, control, start_idx)
+                if translated == -1:
+                    return
                 print(f"\nÇeviri tamamlandı. {translated} bölüm çevrildi.")
                 return
         
@@ -511,6 +505,8 @@ def show_translation_menu(novel_dir):
                 print(f"\nBölüm {chapter_num} çevriliyor...")
                 print("Çeviri başlıyor... (Duraklatmak için 'P', durdurmak için 'S' tuşuna basın)")
                 translated = translate_chapters(novel_dir, selected_items, control)
+                if translated == -1:
+                    return
                 print(f"\nÇeviri tamamlandı. {translated} bölüm çevrildi.")
             
             except ValueError:
@@ -532,6 +528,8 @@ def show_translation_menu(novel_dir):
                 print(f"\n{len(selected_items)} bölüm çevrilecek ({start_num}-{end_num})...")
                 print("Çeviri başlıyor... (Duraklatmak için 'P', durdurmak için 'S' tuşuna basın)")
                 translated = translate_chapters(novel_dir, selected_items, control)
+                if translated == -1:
+                    return
                 print(f"\nÇeviri tamamlandı. {translated} bölüm çevrildi.")
             
             except ValueError:
@@ -549,11 +547,15 @@ def show_translation_menu(novel_dir):
                 print("Çeviri başlıyor... (Duraklatmak için 'P', durdurmak için 'S' tuşuna basın)")
                 
                 translated = translate_chapters(novel_dir, items, control, 0, limit if limit > 0 else None)
+                if translated == -1:
+                    return
                 print(f"\nÇeviri tamamlandı. {translated} bölüm çevrildi.")
             
             except ValueError:
                 print("Geçersiz sayı, tüm bölümler çevriliyor...")
                 translated = translate_chapters(novel_dir, items, control)
+                if translated == -1:
+                    return
                 print(f"\nÇeviri tamamlandı. {translated} bölüm çevrildi.")
         
         else:
@@ -572,7 +574,7 @@ def list_downloaded_novels():
     for item in os.listdir(novels_dir):
         novel_dir = os.path.join(novels_dir, item)
         if os.path.isdir(novel_dir) and os.path.exists(os.path.join(novel_dir, "en")):
-            novels.append((item, novel_dir))
+            novels.append({"name": item, "path": novel_dir, "untranslated_count": len(list_untranslated_chapters(novel_dir))})
     
     return novels
 
@@ -585,8 +587,8 @@ def choose_novel_menu():
         return None
     
     print("\nKayıtlı Romanlar:")
-    for i, (name, _) in enumerate(novels, 1):
-        print(f"{i}. {name}")
+    for i, novel_data in enumerate(novels, 1):
+        print(f"{i}. {novel_data['name']} (Çevrilmemiş Bölüm: {novel_data['untranslated_count']})")
     
     while True:
         try:
@@ -597,7 +599,7 @@ def choose_novel_menu():
             
             idx = int(choice) - 1
             if 0 <= idx < len(novels):
-                return novels[idx][1]  # Novel dizini döndür
+                return novels[idx]["path"]  # Novel dizini döndür
             else:
                 print("Geçersiz seçim. 1-{} arası bir sayı girin.".format(len(novels)))
         
@@ -616,12 +618,32 @@ def show_global_translation_menu():
         show_translation_menu(novel_dir)
 
 def show_main_menu():
-    ##Ana menüyü gösterir.
-    print("\nNovelBuddy.io Novel İndirici")
-    print("============================")
-    print("Menü: D=İndirme, T=Çeviri, Q=Çıkış")
-    sel = input("Seçim (D/T/Q): ").strip().lower()
-    return sel     
+    print("\nAna Menü:")
+    print("  d - Yeni İndirme Başlat")
+    print("  c - Mevcut İndirmeye Devam Et")
+    print("  t - Kayıtlı Romanları Çevir")
+    print("  q - Çıkış")
+    choice = input("Seçiminizi yapın: ").strip().lower()
+    return choice
+
+def list_saved_novels():
+    novels_dir = os.path.join(os.getcwd(), "novels")
+    saved_novels = []
+    if os.path.exists(novels_dir):
+        for novel_name in os.listdir(novels_dir):
+            novel_path = os.path.join(novels_dir, novel_name)
+            if os.path.isdir(novel_path):
+                progress_file = os.path.join(novel_path, "progress.json")
+                if os.path.exists(progress_file):
+                    try:
+                        with open(progress_file, 'r', encoding='utf-8') as f:
+                            progress_data = json.load(f)
+                        current_url = progress_data.get("current_url", "N/A")
+                        current_chapter = progress_data.get("chapter_number", 0)
+                        saved_novels.append({"name": novel_name, "path": novel_path, "url": current_url, "current_chapter": current_chapter})
+                    except Exception as e:
+                        print(f"Hata: {novel_name} için progress.json okunamadı: {e}")
+    return saved_novels     
     
 class Control:
     ##İndirme ve çeviri işlemlerini kontrol etmek için kullanılır.
@@ -629,22 +651,20 @@ class Control:
         self.pause_event = threading.Event()
         self.pause_event.set()  # Başlangıçta duraklatılmamış
         self.stop_event = threading.Event()
+        self.stop_event.clear() # Her yeni işlemde durdurma olayını temizle
         self.translate_event = threading.Event()
         
 def start_keyboard_listener(control):
     def keyboard_listener():
         try:
             import msvcrt
-            print("Kontroller: P=Duraklat, R=Devam, S=Durdur, T=Çeviri")
-            while True:
+            print("Kontroller: P=Duraklat, R=Devam, S=Durdur, T=Ana Menü")
+            while not control.stop_event.is_set():
                 if msvcrt.kbhit():
                     ch = msvcrt.getch().decode('utf-8', errors='ignore').lower()
                     if ch == 'p':
-                        if control.pause_event.is_set():
-                            print("\n[Zaten duraklatılmış - devam için 'R' tuşuna basın]")
-                        else:
-                            control.pause_event.clear()
-                            print("\n[Duraklatıldı - devam için 'R']")
+                        control.pause_event.clear()
+                        print("\n[Duraklatıldı - devam için 'R']")
                     elif ch == 'r':
                         control.pause_event.set()
                         print("\n[Devam ediliyor]")
@@ -652,8 +672,8 @@ def start_keyboard_listener(control):
                         control.stop_event.set()
                         print("\n[Durdurma talebi alındı]")
                     elif ch == 't':
-                        control.translate_event.set()
-                        print("\n[Çeviri menüsü açılacak]")
+                        control.stop_event.set() # Ana menüye dönmek için stop_event'i set et
+                        print("\n[Ana menüye dönülüyor...]")
                 time.sleep(0.1)
         except ImportError:
             print("Uyarı: Windows dışı sistemde klavye dinleyici çalışmayabilir.")
@@ -716,18 +736,12 @@ def main():
             try:
                 pages_downloaded = 0
                 while current_url:
+                    
                     # Sayfa sınırı
                     if page_limit > 0 and pages_downloaded >= page_limit:
                         print(f"Sayfa sınırına ulaşıldı ({page_limit} sayfa). İlerleme kaydediliyor...")
                         save_progress(novel_dir, chapter_number, current_url)
                         break
-
-                    # Çeviri menüsü talebi varsa aç (kayıtlı romanlardan seçim)
-                    if control.translate_event.is_set():
-                        control.translate_event.clear()
-                        print("\n=== Çeviri Menüsü (Kayıtlı Romanlardan) ===")
-                        show_global_translation_menu()
-                        print("=== İndirmeye Dönülüyor ===\n")
 
                     # Durdurma talebi
                     if control.stop_event.is_set():
@@ -767,9 +781,11 @@ def main():
                     current_url = next_url
 
                     time.sleep(1)
+                    
             except KeyboardInterrupt:
                 print("\nCtrl+C yakalandı. İlerleme kaydediliyor...")
                 save_progress(novel_dir, chapter_number, current_url)
+                return
 
             print(f"\nİşlem tamamlandı. Toplam {pages_downloaded} sayfa indirildi.")
             short_en_dir = os.path.join("novels", os.path.basename(novel_dir), "en")
@@ -778,9 +794,109 @@ def main():
             print("\nAna menüye dönülüyor...")
             continue
 
-        else:
-            print("Geçersiz seçim. Lütfen D/T/Q tuşlarını kullanın.")
-            continue
+        elif sel == 'c':
+            # Mevcut indirmeye devam et akışı
+            saved_novels = list_saved_novels()
+            if not saved_novels:
+                print("Kayıtlı roman bulunamadı. Lütfen önce yeni bir indirme başlatın.")
+                continue
+
+            print("\n=== Kayıtlı Romanlar ===")
+            for i, novel in enumerate(saved_novels):
+                print(f"{i+1}. {novel['name']} (Son Bölüm: {novel['current_chapter']})")
+            print("========================")
+
+            try:
+                choice = int(input("Devam etmek istediğiniz romanın numarasını girin: ")) - 1
+                if 0 <= choice < len(saved_novels):
+                    selected_novel = saved_novels[choice]
+                    novel_dir = selected_novel['path']
+                    novel_name = selected_novel['name']
+
+                    control = Control()
+                    start_keyboard_listener(control)
+
+                    progress = load_progress(novel_dir)
+                    if progress:
+                        current_url = progress.get("current_url")
+                        chapter_number = progress.get("chapter_number", 1)
+                        if not current_url:
+                            print("Kayıtlı ilerleme dosyasında URL bulunamadı. Yeni indirme olarak başlatılıyor.")
+                            continue
+                        print(f"{novel_name} romanının {chapter_number}. bölümünden devam ediliyor...")
+                    else:
+                        print("Seçilen roman için ilerleme dosyası bulunamadı. Ana menüye dönülüyor.")
+                        continue
+
+                    try:
+                        pages_downloaded = 0
+                        try:
+                            page_limit = int(input("Kaç sayfa indirilsin? (0 = sınırsız): "))
+                            if page_limit < 0:
+                                page_limit = 0
+                        except ValueError:
+                            print("Geçersiz sayı, sınırsız olarak devam ediliyor.")
+                            page_limit = 0
+                        # İndirme döngüsü (sel == 'd' bloğundaki ile aynı)
+                        while current_url:
+                            # Sayfa sınırı
+                            if page_limit > 0 and pages_downloaded >= page_limit:
+                                print(f"Sayfa sınırına ulaşıldı ({page_limit} sayfa). İlerleme kaydediliyor...")
+                                save_progress(novel_dir, chapter_number, current_url)
+                                break
+
+
+
+                            # Durdurma talebi
+                            if control.stop_event.is_set():
+                                print("Durdurma talebi alındı. İlerleme kaydediliyor...")
+                                save_progress(novel_dir, chapter_number, current_url)
+                                break
+
+                            # Duraklatma
+                            control.pause_event.wait()
+
+                            print(f"\nBölüm {chapter_number} işleniyor... ({pages_downloaded+1}/{page_limit if page_limit > 0 else '∞'})")
+                            short_url = current_url.split('/')[-1] if '/' in current_url else current_url
+                            if len(short_url) > 50:
+                                short_url = short_url[:47] + "..."
+                            print(f"URL: .../{short_url}")
+
+                            soup = fetch_page(current_url)
+                            if not soup:
+                                print("Sayfa çekilemedi. Sonraki sayfaya geçiliyor.")
+                                break
+
+                            content = extract_novel_content(soup)
+                            if save_chapter(content, chapter_number, novel_dir):
+                                chapter_number += 1
+                                pages_downloaded += 1
+
+                            next_url = find_next_page_url(soup, current_url)
+                            if next_url == current_url:
+                                print("Sonraki sayfa mevcut sayfayla aynı. İşlem sonlandırılıyor.")
+                                save_progress(novel_dir, chapter_number, next_url)
+                                break
+                            if not next_url:
+                                print("Sonraki sayfa bulunamadı. İşlem tamamlandı.")
+                                break
+
+                            save_progress(novel_dir, chapter_number, next_url)
+                            current_url = next_url
+
+                            time.sleep(1)
+                    except KeyboardInterrupt:
+                        print("\nCtrl+C yakalandı. İlerleme kaydediliyor...")
+                        save_progress(novel_dir, chapter_number, current_url)
+                        break
+                else:
+                    print("Geçersiz seçim. Ana menüye dönülüyor.")
+            except ValueError:
+                continue 
+
+        else: 
+            print("Geçersiz seçim. Lütfen D/C/T/Q tuşlarını kullanın.")
+            continue 
 
 if __name__ == "__main__":
     try:
