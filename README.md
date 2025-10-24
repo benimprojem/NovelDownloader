@@ -96,3 +96,85 @@ Uygulama, indirilen romanları ve ilerleme bilgilerini aşağıdaki gibi bir diz
 -   Uygulama, roman ilerlemesini her romanın kendi dizinindeki `progress.json` dosyasında saklar.
 -   Çevrilen bölümler, roman dizini içinde `[dil_kodu]` (örn. `en`, `tr`) adında bir klasörde saklanır.
 -   Web sitelerinin yapısı değiştiğinde `fetch_page` ve `find_next_page_url` fonksiyonlarının güncellenmesi gerekebilir.
+
+
+
+
+# 📖 NovelReader - Yerel Roman Okuyucu ve Yönetim Uygulaması
+
+**NovelReader**, yerel diskinizde depolanan romanları (novel) düzenli bir şekilde listelemek ve okumak için tasarlanmış basit ve kullanıcı dostu bir masaüstü uygulamasıdır. `tkinter` kullanılarak Python ile geliştirilmiştir ve düşük kaynak tüketimiyle hızlı bir okuma deneyimi sunar.
+
+## ✨ Temel Özellikler
+
+* **Düzenli Klasör Yapısı:** Romanları `novels/[Roman Adı]/[en/tr]/` yapısında yöneterek çok dilli içeriği destekler.
+* **Bölüm Bazlı Okuma Akışı:** Sol alttaki butonlar ile sayfalar arasında değil, bir sonraki/önceki bölüme kolayca geçiş yapabilirsiniz.
+* **Tam Bölüm Gösterimi:** Okuyucu sekmesi, bölüm içeriğinin tamamını kaydırılabilir tek bir metin kutusunda gösterir.
+* **Sekmeli Dil Yönetimi:** Sağdaki bölüm listesi, **Orijinal (en)**, **Çeviri (tr)** ve ileride eklenecek **PDF** sekmeleri ile dil seçimini ve bölüm listesini netleştirir.
+* **Koyu/Açık Tema Desteği:** Tek tıkla tema değişimi ile göz yorgunluğunu azaltabilirsiniz.
+* **Otomatik Kayıt:** Okuma durumu (hangi romanda hangi bölümü okuduğunuz) otomatik olarak kaydedilir ve bir sonraki açılışta kalınan yerden devam edilir.
+* **Bağımsız Kontrol Çubuğu:** Ana butonlar, uygulamanın üst kısmında bağımsız bir kontrol çubuğunda yer alır.
+
+## 📁 Klasör Yapısı (Kurulum)
+
+Uygulamanın düzgün çalışması için, tüm roman dosyalarınızın aşağıdaki hiyerarşiye uygun bir klasör içinde bulunması gerekmektedir. Varsayılan olarak, uygulamanın çalıştığı dizinde `novels` adında bir ana klasör arar.
+
+/ ├── readnovel.py # Ana uygulama dosyası ├── readnovel_state.json # Okuma durumunun kaydedildiği dosya ├── novels/ # Romanların ana klasörü │ ├── RomanAdı_1/ # Her roman için bir klasör │ │ ├── en/ # İngilizce/Orijinal bölümler │ │ │ └── chapter_0001.txt │ │ │ └── chapter_0002.txt │ │ └── tr/ # Türkçe/Çeviri bölümler (isteğe bağlı) │ │ └── chapter_0001.txt │ └── RomanAdı_2/ │ └── en/ │ └── chapter_0001.txt
+
+
+## 🛠️ Kurulum ve Çalıştırma
+
+Bu uygulama saf Python ve standart `tkinter` kütüphanesi ile geliştirilmiştir. Harici bir paket (library) yüklemeniz gerekmez.
+
+1.  **Python Kurulumu:** Bilgisayarınızda Python 3'ün kurulu olduğundan emin olun.
+2.  **Dosyaları İndirme:** `readnovel.py` dosyasını indirin.
+3.  **Roman Klasörünü Oluşturma:** Uygulama dosyasının bulunduğu dizinde `novels` adında bir klasör oluşturun ve romanlarınızı yukarıdaki yapıya göre yerleştirin.
+4.  **Uygulamayı Başlatma:** Terminal/Komut İstemi üzerinden uygulamayı çalıştırın:
+
+    ```bash
+    python readnovel.py
+    ```
+
+## 🖥️ Kullanım Kılavuzu
+
+### 1. Ana Ekran
+
+Uygulama açıldığında, ekran üç ana bölüme ayrılır:
+
+| Bölüm | Konum | İçerik |
+| :--- | :--- | :--- |
+| **Üst Kontrol Çubuğu** | Üstte, sağa hizalı | `Novel (Klasör Seçimi)`, `Kaydet`, `⭐ (Tema)`, `PDF` butonları. |
+| **Sol İçerik Alanı** | Sol, Geniş | **Novel Listesi** ve **Okuyucu** sekmeleri. |
+| **Sağ Bölüm Listesi** | Sağ, Dar | Bölüm dosyalarının listelendiği **Orijinal**, **Çeviri** ve **PDF** sekmeleri. |
+
+### 2. Roman Yükleme ve Seçimi
+
+* **Novel Listesi Sekmesi:** Uygulama açılışta `novels` klasöründeki romanları listeler.
+* **Roman Seçimi:** Soldaki listeden bir romana tıklayarak sağdaki Bölüm Listesi'ni o romana ait bölümlerle doldurursunuz.
+* **Klasör Değiştirme:** Eğer romanlarınız başka bir yerdeyse, üstteki **Novel** butonuna tıklayarak yeni ana `novels` klasörünü seçebilirsiniz.
+
+### 3. Bölüm Okuma
+
+1.  **Dil Seçimi:** Sağdaki Bölüm Listesi alanından **Orijinal (en)** veya **Çeviri (tr)** sekmesini seçin.
+2.  **Bölüm Açma:** İstenen bölüm dosyasına (örneğin `chapter_0001.txt`) **çift tıklayın**.
+3.  **Okuyucu Sekmesi:** Uygulama otomatik olarak **Okuyucu** sekmesine geçer ve bölümün **tamamını** yükler. Metin kutusunun kaydırma çubuğunu kullanarak bölümü okuyabilirsiniz.
+
+### 4. İlerleme ve Navigasyon
+
+* **İleri/Geri Butonları:** Okuyucu sekmesinin altında bulunan **`<< Geri`** ve **`İleri >>`** butonları, okuduğunuz dildeki **bir önceki veya bir sonraki bölüme** geçiş yapar.
+* **Otomatik Kayıt:** Bölüm değiştirdiğinizde veya uygulamayı kapattığınızda, okuma durumunuz (`readnovel_state.json` dosyasına) sessizce kaydedilir.
+* **Manuel Kayıt:** Üst çubuktaki **Kaydet** butonu ile istediğiniz zaman manuel kayıt yapabilirsiniz. (Bu işlemde bilgilendirme mesajı görünür).
+
+## 💡 İpuçları
+
+* **Tema Değişimi:** Üst çubukta bulunan **⭐** butonuna tıklayarak Açık ve Koyu tema arasında geçiş yapabilirsiniz.
+* **Dosya Formatı:** Bölüm dosyaları düz metin (`.txt`) formatında ve `utf-8` kodlamasında olmalıdır.
+* **Çeviri Sekmesi:** `Çeviri (tr)` sekmesi, ilgili roman klasörünün içindeki `tr` alt klasöründeki dosyaları listeler.
+
+## 🛑 Bilinen Kısıtlamalar
+
+* **PDF Desteği:** Sağdaki `PDF` sekmesi henüz işlevsel değildir ve ileride geliştirilecektir.
+* **Arama/Filtreleme:** Novel listesi veya Bölüm listesi için henüz arama (filtreleme) özelliği mevcut değildir.
+
+---
+
+**© [2025] [cem/DissConnected]**
