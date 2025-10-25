@@ -65,8 +65,9 @@ def _clear_name(yazi):
     
     # Özel karakterleri temizle ve baştaki/sondaki boşlukları al
     safe_name = re.sub(r'[\\/*?:"<>|]', "", yazi).strip()
-    
-    return safe_name
+    # Kelimelerin ilk harflerini büyük yap.
+    final_name = safe_name.title()
+    return final_name
     
 def create_novel_directory(novel_name):
     ##Novel için klasör oluşturur."""
@@ -933,3 +934,4 @@ if __name__ == "__main__":
         print("\nBeklenmeyen hata:", e)
         traceback.print_exc()
         input("\nHata ayrıntısını görmek için Enter'a basın...")
+
