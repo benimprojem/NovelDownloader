@@ -3,7 +3,7 @@ import time
 import re
 import json
 import threading
-import sys # İlerleme çubuğu için sys modülünü ekle
+import sys 
 # Kütüphanelerin kurulu olup olmadığını kontrol et
 try:
     import requests
@@ -31,9 +31,65 @@ def fetch_page(url):
         response.raise_for_status()  # HTTP hatalarını kontrol et
         return BeautifulSoup(response.text, 'html.parser')
     except requests.exceptions.RequestException as e:
-        print(f"Hata: Sayfa çekilemedi - {url}")
-        print(f"Hata detayı: {e}")
+        msg = str(e)
+        short = msg[-100:] if len(msg) > 100 else msg
+        print(f"Hata::Sayfa çekilemedi - {url}")
+        print(f"Hata detayı::{msg}")
         return None
+        
+# YENİ FONKSİYON: Bölüm URL'sinden ana roman sayfasının URL'sini bulur
+def find_novel_base_url(chapter_url):
+    """Bölüm URL'sinden ana roman sayfasının URL'sini bulur."""
+    # URL'nin sonundaki /chapter-X-ad-gibi kısımları kaldır
+    parts = chapter_url.strip('/').split('/')
+    
+    # Yeni yaklaşım: Ana URL'yi bulana kadar son parçayı sil
+    reverse_parts = list(reversed(parts))
+    
+    # Eğer son parça 'chapter' veya 'bölüm' içeriyorsa:
+    if len(reverse_parts) > 1 and ('chapter' in reverse_parts[0].lower() or 'bölüm' in reverse_parts[0].lower()):
+        # Son kısmı at
+        base_url_parts = parts[:-1]
+        base_url = '/'.join(base_url_parts) + '/'
+        
+        # Sonucu kontrol et - hala bir bölüm linki olabilir, bir parça daha at
+        if 'chapter' in base_url.lower() or 'bölüm' in base_url.lower():
+            base_url_parts = base_url_parts[:-1]
+            base_url = '/'.join(base_url_parts) + '/'
+        
+        return base_url
+        
+    return chapter_url # Zaten ana sayfa olabilir
+
+# YENİ FONKSİYON: Romanın ana sayfasından toplam bölüm sayısını çeker
+def get_total_chapters(novel_base_url):
+    """Romanın ana sayfasından toplam bölüm sayısını çeker."""
+    print(f"Toplam bölüm sayısı için ana sayfa kontrol ediliyor: {novel_base_url}")
+    soup = fetch_page(novel_base_url)
+    if not soup:
+        print("Hata: Ana sayfa çekilemedi, toplam bölüm sayısı belirlenemedi.")
+        return 0
+    
+    try:
+        # <p><strong>Chapters: </strong> <span>4720</span></p> yapısını ara
+        strong_tag = soup.find('strong', string=lambda t: t and 'Chapters:' in t)
+        
+        if strong_tag and strong_tag.parent:
+            # strong'un kardeşi olan span etiketini bul
+            span_tag = strong_tag.parent.find('span')
+            
+            if span_tag:
+                count_text = span_tag.get_text(strip=True)
+                if count_text.isdigit():
+                    print(f"Başarılı: Toplam bölüm sayısı: {count_text}")
+                    return int(count_text)
+        
+        print("Uyarı: Toplam bölüm sayısı bilgisi ('Chapters: XX') sayfada bulunamadı. 0 olarak ayarlandı.")
+        return 0
+    except Exception as e:
+        print(f"Toplam bölüm sayısı çekilirken hata oluştu: {e}")
+        return 0
+        
 def find_next_page_url(soup, current_url):
     ## Sonraki sayfa linkini bulur.
     try:
@@ -41,8 +97,14 @@ def find_next_page_url(soup, current_url):
         next_link = soup.find('a', id='btn-next')
         
         if next_link and next_link.get('href'):
-            # Göreceli URL'yi mutlak URL'ye dönüştür
             next_url = next_link['href']
+            
+            # **Yeni Kontrol:** Eğer href='#' ise, bu son sayfa demektir.
+            if next_url == '#':
+                print("Sonraki sayfa linki '#' olarak bulundu. Bu son bölümdür. İşlem sonlandırılıyor.")
+                return None
+            
+            # Göreceli URL'yi mutlak URL'ye dönüştür
             if next_url.startswith('/'):
                 # Baz URL'yi çıkar
                 base_url = '/'.join(current_url.split('/')[:3])
@@ -57,7 +119,7 @@ def find_next_page_url(soup, current_url):
         return None
 def _clear_name(yazi):
     # Temizlenecek kelimeler (büyük/küçük harfe duyarsız)
-    no_words = ['read', 'mtl', '-', 're:']
+    no_words = ['read', 'mtl', '-', 're:', ',','.']
     
     # Tüm istenmeyen kelimeleri kaldır
     for word in no_words:
@@ -90,10 +152,10 @@ def create_novel_directory(novel_name):
     else:
         print(f"Klasör zaten mevcut: .../{short_dir}")
     # en ve tr alt klasörlerini oluştur
-    en_dir = os.path.join(novel_dir, "en")
-    tr_dir = os.path.join(novel_dir, "tr")
-    short_en = os.path.join("novels", safe_name, "en")
-    short_tr = os.path.join("novels", safe_name, "tr")
+    en_dir = os.path.join(novel_dir, source_lang)
+    tr_dir = os.path.join(novel_dir, target_lang)
+    short_en = os.path.join("novels", safe_name, source_lang)
+    short_tr = os.path.join("novels", safe_name, target_lang)
     if not os.path.exists(en_dir):
         os.makedirs(en_dir)
         print(f"Klasör oluşturuldu: .../{short_en}")
@@ -112,57 +174,79 @@ def save_chapter(content, chapter_number, novel_dir):
         return False
     
     # EN klasörüne kaydet
-    en_dir = os.path.join(novel_dir, "en")
+    en_dir = os.path.join(novel_dir, source_lang)
     file_path = os.path.join(en_dir, f"chapter_{chapter_number:04d}.txt")
     
     try:
         with open(file_path, 'w', encoding='utf-8') as file:
             file.write(content)
         # Dosya yolunu kısalt
-        short_path = os.path.join("en", os.path.basename(file_path))
-        print(f"Bölüm {chapter_number} kaydedildi: .../{short_path}")
+        short_path = os.path.join(source_lang, os.path.basename(file_path))
+        print(f"Bölüm:{chapter_number} kaydedildi: .../{short_path} ::İçerik: {len(content)} karakter")
         return True
     except Exception as e:
         print(f"Dosya kaydedilirken hata oluştu: {e}")
         return False
+        
+# GÜNCELLENDİ: İçerik çıkarma başarısız olursa, div#chapter-content'i deneyecek yedek mekanizma eklendi.
 def extract_novel_content(soup):
     try:
         # Tüm HTML'yi metin olarak al
         html = soup.decode()
-        # Çekilecek aralık işaretleri
+        
+        inner_html = None
+        
         # INFOLINKS_ON ile INFOLINKS_OFF arasındaki içeriği eksiksiz alır.
         match = re.search(r'<!--\s*INFOLINKS_ON\s*-->(.*?)<!--\s*INFOLINKS_OFF\s*-->', html, re.DOTALL | re.IGNORECASE)
-        if not match:
-            print("INFOLINKS yorum aralığı bulunamadı.")
-            return None
         
-        inner_html = match.group(1)
-        
+        if match:
+            inner_html = match.group(1)
+        else:
+            # 2. Yedek Yöntem: Yaygın Bölüm İçerik Etiketleri
+            # NovelBuddy/Yaygın ID
+            content_div = soup.find('div', id='chapter-content')
+            if not content_div:
+                # Yaygın Sınıf
+                content_div = soup.find('div', class_='chapter-content') 
+            
+            if content_div:
+                inner_html = str(content_div)
+            else:
+                # Kullanıcıdan gelen hatayı önlemek için daha açıklayıcı uyarı
+                print("Uyarı: INFOLINKS veya bilinen içerik etiketi bulunamadı.") 
+                return None
+                
+        if not inner_html:
+             print("Uyarı: İçerik HTML'i boş.")
+             return None
+             
         # İçeriği metne çevirirken satır sonlarını koru
         inner_soup = BeautifulSoup(inner_html, 'html.parser')
+        
         for tag in inner_soup(['script', 'style']):
             tag.decompose()
         text = inner_soup.get_text(separator='\n')
         
         # Satır sonlarını ve boşlukları normalize et
         text = re.sub(r'\r\n?', '\n', text)
-        # Fazla satır sonlarını temizle (3 veya daha fazla ardışık \n'i 2'ye düşür)
         text = re.sub(r'\n{3,}', '\n\n', text)
-        # Fazla boşlukları temizle
         text = re.sub(r'[ \t]{2,}', ' ', text)
-        # Satır başı ve sonundaki boşlukları temizle
         lines = text.split('\n')
         lines = [line.strip() for line in lines]
         text = '\n'.join(lines)
-        # Birden fazla boş satırı tek boş satıra düşür
-        text = re.sub(r'\n{2,}', '\n\n', text)
+        text = re.sub(r'\n{2,}', '\n', text)
         
         cleaned = text.strip()
-        print(f"İçerik uzunluğu: {len(cleaned)} karakter")
+        
+        if len(cleaned) < 50: 
+            print(f"Uyarı: Çıkarılan içerik çok kısa ({len(cleaned)} karakter). Başarısız sayılıyor.")
+            return None
+        
         return cleaned
     except Exception as e:
         print(f"İçerik çıkarılırken hata oluştu: {e}")
         return None
+        
 def extract_novel_name(soup):
     ##Sayfa başlığından novel adını çıkarır.
     try:
@@ -180,23 +264,31 @@ def extract_novel_name(soup):
         return title.strip()
     except Exception:
         return "Bilinmeyen Novel"
-def save_progress(novel_dir, chapter_number, current_url):
-    ##İlerlemeyi novel klasörüne progress.json olarak yazar.
+        
+# GÜNCELLENDİ: total_chapters parametresi eklendi
+def save_progress(novel_dir, chapter_number, current_url, total_chapters=0):
+    ##İlerleme ve total_chapters değerini novel klasörüne progress.json olarak yazar.
     try:
         progress_path = os.path.join(novel_dir, "progress.json")
         data = {
             "chapter_number": chapter_number,
-            "current_url": current_url
+            "current_url": current_url,
+            "total_chapters": total_chapters # Eklendi
         }
         with open(progress_path, 'w', encoding='utf-8') as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
+        # Sadece hata ayıklama için bu bilgiyi tutuyoruz
         # URL'yi kısaltarak göster
         short_url = current_url.split('/')[-1] if '/' in current_url else current_url
         if len(short_url) > 50:
             short_url = short_url[:47] + "..."
-        print(f"İlerleme kaydedildi: bölüm={chapter_number}, url=.../{short_url}")
+        # total_chapters'ı da göster
+        total_display = total_chapters if total_chapters > 0 else '∞'
+        print(f"İlerleme kaydedildi: bölüm={chapter_number}, toplam={total_display}, url=.../{short_url}")
     except Exception as e:
         print(f"İlerleme kaydedilemedi: {e}")
+        
+# GÜNCELLENDİ: total_chapters yüklemesi ve görüntülemesi yapıldı
 def load_progress(novel_dir):
     ##Novel klasöründeki progress.json'ı okur.
     try:
@@ -204,26 +296,25 @@ def load_progress(novel_dir):
         if os.path.exists(progress_path):
             with open(progress_path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
+            
+            # total_chapters'ı yükle, yoksa 0 varsay
+            total_chapters = data.get('total_chapters', 0) 
+            
             # URL'yi kısaltarak göster
             short_url = (data.get('current_url') or '')
             short_url = short_url.split('/')[-1] if '/' in short_url else short_url
             if len(short_url) > 50:
                 short_url = short_url[:47] + "..."
-            print(f"Mevcut ilerleme bulundu: bölüm={data.get('chapter_number')}, url=.../{short_url}")
+            
+            print("--------------------------------------------------------------------------")
+            # Değişiklik: total_chapters 0 ise '∞' göster.
+            total_display = total_chapters if total_chapters > 0 else '∞'
+            print(f"\nMevcut ilerleme bulundu: bölüm={data.get('chapter_number')}, toplam={total_display}, url=.../{short_url}")
             return data
     except Exception as e:
         print(f"İlerleme yüklenemedi: {e}")
-        
-        choice = input("Dil kodu veya numara girin: ").strip().lower()
-        
-        if choice.isdigit():
-            idx = int(choice) - 1
-            if 0 <= idx < len(LANGUAGES):
-                return list(LANGUAGES.keys())[idx]
-        elif choice in LANGUAGES:
-            return choice
-        else:
-            print("Geçersiz seçim. Lütfen geçerli bir dil kodu veya numara girin.")
+        return None # Hata durumunda None döndür
+
 try:
     from deep_translator import GoogleTranslator as DTTranslator
     TRANSLATOR_BACKEND = 'deep'
@@ -237,6 +328,7 @@ except Exception:
         TRANSLATOR_BACKEND = None
         print("Çeviri kütüphanesi bulunamadı.")
         print("Yüklemek için: py pip install deep-translator  veya  py -m pip install googletrans==4.0.0-rc1")
+        
 def translate_text_en_to_tr(text, control=None, source_lang='en', target_lang='tr', chapter_num=None):
     if TRANSLATOR_BACKEND is None:
         print("Çeviri yapılamıyor: kütüphane yüklü değil.")
@@ -255,15 +347,32 @@ def translate_text_en_to_tr(text, control=None, source_lang='en', target_lang='t
                         print("Çeviri duraklatıldı. Devam etmek için 'R' tuşuna basın.")
                         control.pause_event.wait()
                     
-                    sys.stdout.write(f"\rBölüm {chapter_num} - Parça {i + 1}/{len(chunks)} çevriliyor... ")
+                    sys.stdout.write(f"\rBölüm {chapter_num} - Parça {i + 1}/{len(chunks)} Deep ile çevriliyor... ")
                     sys.stdout.flush()
-                    try:
-                        translated = translator.translate(chunk)
-                    except Exception as e:
-                        msg = str(e)
-                        short = msg[-200:] if len(msg) > 200 else msg
-                        print(f"Çeviri hatası (son 200): {short}")
-                        translated = chunk  # Hata veren parçayı orijinal hâliyle ekle
+
+                    retry_count = 0
+                    max_retries = 2  # Maksimum tekrar deneme sayısı (toplamda 3 deneme: 1 ilk deneme + 2 tekrar)
+
+                    while retry_count <= max_retries:
+                        try:
+                            # **1. Çeviri İşlemi**
+                            translated = translator.translate(chunk)
+                            break  # Başarılı olursa döngüden çık
+                        except Exception as e:
+                            # **2. Hata Durumu**
+                            if retry_count < max_retries:
+                                # Tekrar deneme hakkı varsa
+                                retry_count += 1
+                                print(f"Çeviri hatası Parça:{i + 1}, Çeviri Tekrar Deneniyor. :(Deneme {retry_count + 1}/{max_retries + 1}):")
+                                # İsteğe bağlı: Kısa bir bekleme ekleyebilirsiniz (örn: time.sleep(1))
+                                continue  # Döngünün başına dön ve tekrar dene
+                            else:
+                                # Tekrar deneme hakkı kalmadıysa
+                                print(f"Çeviri hatası: Parça:{i + 1}: :: Maksimum Denemeye Ulaşıldı. Parça Orjinal Olarak Kaydedildi.")
+                                translated = chunk  # Hata veren parçayı orijinal hâliyle ekle
+                                break # Hata kaydedildi, döngüden çık
+
+                    # Bu noktada 'translated' değişkeninde ya başarılı çeviri ya da orijinal 'chunk' olacaktır.
                     
                     sys.stdout.write("\r" + " " * 80 + "\r") # Clear the line
                     sys.stdout.flush()
@@ -274,9 +383,9 @@ def translate_text_en_to_tr(text, control=None, source_lang='en', target_lang='t
                 try:
                     return translator.translate(text)
                 except Exception as e:
-                    msg = str(e)
-                    short = msg[-200:] if len(msg) > 200 else msg
-                    print(f"Çeviri hatası (son 200): {short}")
+                    #msg = str(e)
+                    #short = msg[-168:] if len(msg) > 168 else msg
+                    print(f"Çeviri hatası:::Orjinal Olarak Kaydedildi.")
                     return text  # Tek parça hatasında orijinal metni döndür
         elif TRANSLATOR_BACKEND == 'google':
             # translator = GTTranslator() # Global translator nesnesini kullan
@@ -291,15 +400,35 @@ def translate_text_en_to_tr(text, control=None, source_lang='en', target_lang='t
                         print("Çeviri duraklatıldı. Devam etmek için 'R' tuşuna basın.")
                         control.pause_event.wait()
                     
-                    sys.stdout.write(f"\rBölüm {chapter_num} - Parça {i + 1}/{len(chunks)} çevriliyor... ")
+                    sys.stdout.write(f"\rBölüm {chapter_num} - Parça {i + 1}/{len(chunks)} Foogle ile çevriliyor... ")
                     sys.stdout.flush()
-                    try:
-                        translated = translator.translate(chunk, src=source_lang, dest=target_lang).text
-                    except Exception as e:
-                        msg = str(e)
-                        short = msg[-200:] if len(msg) > 200 else msg
-                        print(f"Çeviri hatası (son 200): {short}")
-                        translated = chunk  # Hata veren parçayı orijinal hâliyle ekle
+                    
+                    retry_count = 0
+                    max_retries = 2  # Maksimum tekrar deneme sayısı (toplamda 3 deneme: 1 ilk deneme + 2 tekrar)
+
+                    while retry_count <= max_retries:
+                        try:
+                            # **1. Çeviri İşlemi**
+                            # GTTranslator'ı fonksiyon içinde çağır
+                            from googletrans import Translator as GTTranslator
+                            translator = GTTranslator()
+                            translated = translator.translate(chunk, src=source_lang, dest=target_lang).text
+                            break  # Başarılı olursa döngüden çık
+                        except Exception as e:
+                            # **2. Hata Durumu**
+                            if retry_count < max_retries:
+                                # Tekrar deneme hakkı varsa
+                                retry_count += 1
+                                print(f"Çeviri hatası Parça:{i + 1}, Çeviri Tekrar Deneniyor. :(Deneme {retry_count + 1}/{max_retries + 1}):")
+                                # İsteğe bağlı: Kısa bir bekleme ekleyebilirsiniz (örn: time.sleep(1))
+                                continue  # Döngünün başına dön ve tekrar dene
+                            else:
+                                # Tekrar deneme hakkı kalmadıysa
+                                print(f"Foogle Çeviri hatası: Parça:{i + 1}:: Maksimum Denemeye Ulaşıldı. Parça Orjinal Olarak Kaydedildi.")
+                                translated = chunk  # Hata veren parçayı orijinal hâliyle ekle
+                                break # Hata kaydedildi, döngüden çık
+
+                    # Bu noktada 'translated' değişkeninde ya başarılı çeviri ya da orijinal 'chunk' olacaktır.
                     
                     sys.stdout.write("\r" + " " * 80 + "\r") # Clear the line
                     sys.stdout.flush()
@@ -308,21 +437,25 @@ def translate_text_en_to_tr(text, control=None, source_lang='en', target_lang='t
                 return '\n'.join(result)
             else:
                 try:
+                    # GTTranslator'ı fonksiyon içinde çağır
+                    from googletrans import Translator as GTTranslator
+                    translator = GTTranslator()
                     return translator.translate(text, src=source_lang, dest=target_lang).text
                 except Exception as e:
-                    msg = str(e)
-                    short = msg[-200:] if len(msg) > 200 else msg
-                    print(f"Çeviri hatası (son 200): {short}")
+                    #msg = str(e)
+                    #short = msg[-168:] if len(msg) > 168 else short
+                    print(f"Çeviri hatası:::Orjinal Olarak Kaydedildi.")
                     return text  # Tek parça hatasında orijinal metni döndür
     except Exception as e:
         msg = str(e)
-        short = msg[-200:] if len(msg) > 200 else msg
-        print(f"Çeviri hatası (son 200): {short}")
+        short = msg[-168:] if len(msg) > 168 else short
+        #print(f"Çeviri hatası: {short}:::Orjinal Olarak Kaydedildi.")
+        print(f"Çeviri Yapılamadı::::Orjinal Olarak Kaydedildi.")
         return text  # Genel hatada da orijinal metinle akışı sürdür
 def list_untranslated_chapters(novel_dir):
     ##Çevrilmemiş bölümleri listeler.
-    en_dir = os.path.join(novel_dir, "en")
-    tr_dir = os.path.join(novel_dir, "tr")
+    en_dir = os.path.join(novel_dir, source_lang)
+    tr_dir = os.path.join(novel_dir, target_lang)
     
     if not os.path.exists(en_dir):
         print(f"Hata: İngilizce klasör bulunamadı: {en_dir}")
@@ -344,6 +477,7 @@ def list_untranslated_chapters(novel_dir):
                 continue
     
     return sorted(untranslated)
+    
 def load_translation_progress(novel_dir):
     ##Çeviri ilerleme durumunu yükler.
     progress_file = os.path.join(novel_dir, "translate_progress.json")
@@ -354,6 +488,7 @@ def load_translation_progress(novel_dir):
         except Exception as e:
             print(f"Çeviri ilerleme dosyası yüklenemedi: {e}")
     return {"last_chapter": 0, "total_translated": 0}
+    
 def save_translation_progress(novel_dir, chapter_num, total_translated):
     ##Çeviri ilerleme durumunu kaydeder.
     progress_file = os.path.join(novel_dir, "translate_progress.json")
@@ -368,6 +503,7 @@ def save_translation_progress(novel_dir, chapter_num, total_translated):
     except Exception as e:
         print(f"Çeviri ilerleme kaydedilemedi: {e}")
         return False
+        
 def _split_chunks(text, max_length=4500):
     ##Metni çeviri için uygun parçalara böler.
     paragraphs = text.split('\n')
@@ -386,24 +522,26 @@ def _split_chunks(text, max_length=4500):
     if current_chunk:
         chunks.append(current_chunk)
     return chunks
+    
 def _print_progress_bar(chapter_num, current_chapter_index, total_chapters, control):
     while not control.stop_progress_bar:
-        progress_percentage = (current_chapter_index / total_chapters)
-        filled_length = int(20 * progress_percentage)
-        bar = '█' * filled_length + '-' * (20 - filled_length)
-        sys.stdout.write(f"\rBölüm {chapter_num} çevriliyor... ({current_chapter_index}/{total_chapters}) [{bar}]")
+        #progress_percentage = (current_chapter_index / total_chapters)
+        #filled_length = int(20 * progress_percentage)
+        #bar = '█' * filled_length + '-' * (20 - filled_length)
+        #sys.stdout.write(f"\rBölüm {chapter_num} çevriliyor... ({current_chapter_index}/{total_chapters}) [{bar}]")
+        sys.stdout.write(f"\rBölüm {chapter_num} çevriliyor... ({current_chapter_index}/{total_chapters})")
         sys.stdout.flush()
-        time.sleep(0.1)
+        time.sleep(0.01)
     sys.stdout.write("\r" + " " * 80 + "\r") # Clear the line
     sys.stdout.flush()
 
-def translate_chapters(novel_dir, chapters, control=None, start_from=0, limit=None, source_lang='en', target_lang='tr'):
+def translate_chapters(novel_dir, chapters, control=None, start_from=0, limit=None, source_lang="en", target_lang="tr"):
     ##Belirtilen bölümleri çevirir.
     if TRANSLATOR_BACKEND is None:
         print("Çeviri yapılamıyor: Çeviri kütüphanesi yüklü değil.")
         return 0
-    en_dir = os.path.join(novel_dir, "en")
-    tr_dir = os.path.join(novel_dir, "tr")
+    en_dir = os.path.join(novel_dir, source_lang)
+    tr_dir = os.path.join(novel_dir, target_lang)
     if not os.path.exists(tr_dir):
         os.makedirs(tr_dir)
 
@@ -450,7 +588,12 @@ def translate_chapters(novel_dir, chapters, control=None, start_from=0, limit=No
                 
                 total_translated += 1
                 save_translation_progress(novel_dir, chapter_num, total_translated)
-                print(f"Bölüm {chapter_num} çevrildi ve kaydedildi.")
+                if limit == None:
+                    ##Çeviri menüsünü gösterir ve işlemleri yönetir.
+                    items = list_untranslated_chapters(novel_dir)
+                    limit = len(items)
+                    limit += 1
+                print(f"Bölüm {chapter_num} çevrildi ve kaydedildi. ({total_translated}/{limit})")
             else:
                 print(f"Bölüm {chapter_num} çevrilemedi.")
         
@@ -466,13 +609,15 @@ def show_translation_menu(novel_dir):
     ##Çeviri menüsünü gösterir ve işlemleri yönetir.
     items = list_untranslated_chapters(novel_dir)
     total = len(items)
+    print("\n------------------------------------------------------------------------------------")
     print(f"\n[Çeviri] Novel: {os.path.basename(novel_dir)} | Çevrilmemiş bölüm sayısı: {total}")
-    
+    print("------------------------------------------------------------------------------------\n")
     if total:
         # Global dil ayarlarını kullan
         print(f"Çeviri dilleri: Kaynak: {source_lang}, Hedef: {target_lang}")
 
         show_all = input("Tam liste gösterilsin mi? (E/H): ").strip().lower()
+        print("--------------------------------------------------------------------------")
         if show_all.startswith('e'):
             print("Çevrilmemiş bölümler:")
             all_names = ", ".join(f"chapter_{str(n).zfill(4)}" for n, _ in items)
@@ -491,11 +636,13 @@ def show_translation_menu(novel_dir):
                         break
                 
                 print(f"Bölüm {items[start_idx][0]}'den devam ediliyor...")
+                print("--------------------------------------------------------------------------\n")
                 control = Control()
                 start_keyboard_listener(control)
                 
                 print("\nÇeviri başlıyor... (Duraklatmak için 'P', durdurmak için 'S' tuşuna basın)")
-                translated = translate_chapters(novel_dir, items, control, start_idx, source_lang, target_lang)
+                print("--------------------------------------------------------------------------")
+                translated = translate_chapters(novel_dir, items, control, start_idx, total, source_lang, target_lang)
                 if translated == -1:
                     return
                 print(f"\nÇeviri tamamlandı. {translated} bölüm çevrildi.")
@@ -508,7 +655,7 @@ def show_translation_menu(novel_dir):
         print("M. Ana menüye dön")
         
         choice = input("Seçiminiz (1/2/3/M): ").strip()
-        
+        print("--------------------------------------------------------------------------")
         if choice.lower() == 'm':
             print("Ana menüye dönülüyor...")
             return
@@ -527,7 +674,8 @@ def show_translation_menu(novel_dir):
                 
                 print(f"\nBölüm {chapter_num} çevriliyor...")
                 print("Çeviri başlıyor... (Duraklatmak için 'P', durdurmak için 'S' tuşuna basın)")
-                translated = translate_chapters(novel_dir, selected_items, control, 0, source_lang, target_lang)
+                print("\n--------------------------------------------------------------------------")
+                translated = translate_chapters(novel_dir, selected_items, control, 0, total, source_lang, target_lang)
                 if translated == -1:
                     return
                 print(f"\nÇeviri tamamlandı. {translated} bölüm çevrildi.")
@@ -547,10 +695,11 @@ def show_translation_menu(novel_dir):
                 if not selected_items:
                     print(f"Belirtilen aralıkta çevrilmemiş bölüm bulunamadı.")
                     return
-                
+                print("\n--------------------------------------------------------------------------")
                 print(f"\n{len(selected_items)} bölüm çevrilecek ({start_num}-{end_num})...")
                 print("Çeviri başlıyor... (Duraklatmak için 'P', durdurmak için 'S' tuşuna basın)")
-                translated = translate_chapters(novel_dir, selected_items, control, 0, source_lang, target_lang)
+                print("--------------------------------------------------------------------------")
+                translated = translate_chapters(novel_dir, selected_items, control, 0, total, source_lang, target_lang)
                 if translated == -1:
                     return
                 print(f"\nÇeviri tamamlandı. {translated} bölüm çevrildi.")
@@ -562,13 +711,12 @@ def show_translation_menu(novel_dir):
             limit_input = input("Kaç bölüm çevrilsin? (0=tümü): ").strip()
             try:
                 limit = int(limit_input)
-                if limit < 0:
-                    limit = 0
+                if limit == 0:
+                    limit = total
                 
-                limit_text = f"ilk {limit} bölüm" if limit > 0 else "tüm bölümler"
-                print(f"\n{limit_text} çevrilecek...")
+                print(f"\nToplam {limit} bölüm çevrilecek...")
                 print("Çeviri başlıyor... (Duraklatmak için 'P', durdurmak için 'S' tuşuna basın)")
-                
+                print("--------------------------------------------------------------------------\n")
                 translated = translate_chapters(novel_dir, items, control, 0, limit if limit > 0 else None)
                 if translated == -1:
                     return
@@ -586,6 +734,7 @@ def show_translation_menu(novel_dir):
     else:
         print("Çevrilecek bölüm bulunamadı.")
 
+# Bu fonksiyonun güncellenmiş versiyonu list_saved_novels'tan önce olmalı.
 def list_downloaded_novels():
     ##İndirilmiş romanları listeler.
     novels_dir = os.path.join(os.getcwd(), "novels")
@@ -597,7 +746,21 @@ def list_downloaded_novels():
     for item in os.listdir(novels_dir):
         novel_dir = os.path.join(novels_dir, item)
         if os.path.isdir(novel_dir) and os.path.exists(os.path.join(novel_dir, "en")):
-            novels.append({"name": item, "path": novel_dir, "untranslated_count": len(list_untranslated_chapters(novel_dir))})
+            progress_data = load_progress(novel_dir)
+            
+            # total_chapters'ı al
+            total_chapters = progress_data.get('total_chapters', 0) if progress_data else 0 
+
+            # İndirilen bölüm sayısını hesapla
+            downloaded_count = progress_data.get('chapter_number', 1) - 1
+
+            novels.append({
+                "name": item, 
+                "path": novel_dir, 
+                "untranslated_count": len(list_untranslated_chapters(novel_dir)),
+                "total_chapters": total_chapters, 
+                "downloaded_count": downloaded_count
+            })
     
     return novels
 
@@ -609,9 +772,10 @@ def choose_novel_menu():
         print("Çevrilecek roman bulunamadı.")
         return None
     
-    print("\nKayıtlı Romanlar:")
+    print("Kayıtlı Romanlar:")
     for i, novel_data in enumerate(novels, 1):
-        print(f"{i}. {novel_data['name']} (Çevrilmemiş Bölüm: {novel_data['untranslated_count']})")
+        total_info = f"/{novel_data['total_chapters']}" if novel_data['total_chapters'] > 0 else ""
+        print(f"{i}. {novel_data['name']} (Çevrilmemiş Bölüm: {novel_data['untranslated_count']}{total_info})")
     
     while True:
         try:
@@ -647,8 +811,10 @@ def show_main_menu():
     print("  T - Kayıtlı Novel Çevir")
     print("  Q - Çıkış")
     choice = input("Seçiminizi yapın: ").strip().lower()
+    print("--------------------------------------------------------------------------\n")
     return choice
 
+# GÜNCELLENDİ: total_chapters bilgisini de çekiyor
 def list_saved_novels():
     novels_dir = os.path.join(os.getcwd(), "novels")
     saved_novels = []
@@ -662,8 +828,20 @@ def list_saved_novels():
                         with open(progress_file, 'r', encoding='utf-8') as f:
                             progress_data = json.load(f)
                         current_url = progress_data.get("current_url", "N/A")
-                        current_chapter = progress_data.get("chapter_number", 0)
-                        saved_novels.append({"name": novel_name, "path": novel_path, "url": current_url, "current_chapter": current_chapter})
+                        next_chapter = progress_data.get("chapter_number", 0)
+                        total_chapters = progress_data.get("total_chapters", 0) 
+                        
+                        # İndirilen bölüm sayısı: İndirilecek bir sonraki bölüm (next_chapter) - 1
+                        downloaded_count = next_chapter - 1
+                        
+                        saved_novels.append({
+                            "name": novel_name, 
+                            "path": novel_path, 
+                            "url": current_url, 
+                            "next_chapter": next_chapter,
+                            "total_chapters": total_chapters,
+                            "downloaded_count": downloaded_count
+                        })
                     except Exception as e:
                         print(f"Hata: {novel_name} için progress.json okunamadı: {e}")
     return saved_novels     
@@ -701,8 +879,17 @@ def start_keyboard_listener(control):
                         print("\n[Ana menüye dönülüyor...]")
                 time.sleep(0.1)
         except ImportError:
+            # sys.stdin.fileno() ile standart Linux/macOS girişi de dinlenebilir,
+            # ancak basitlik için bu uyarıyı tutuyorum.
             print("Uyarı: Windows dışı sistemde klavye dinleyici çalışmayabilir.")
-    threading.Thread(target=keyboard_listener, daemon=True).start()
+    
+    # msvcrt sadece Windows'ta olduğu için kontrol et
+    try:
+        import msvcrt
+        threading.Thread(target=keyboard_listener, daemon=True).start()
+    except ImportError:
+        # msvcrt yoksa (Linux/macOS) dinleyiciyi başlatma
+        print("Uyarı: Klavye dinleyici sadece Windows'ta aktiftir (P/R/S/T tuşları).")
     
 def main():
     while True:
@@ -718,7 +905,7 @@ def main():
             continue
 
         elif sel == 'd':
-            # İndirme akışı
+            # Yeni İndirme akışı
             start_url = input("Novelin ilk sayfasının URL'sini girin: ").strip()
             if not start_url:
                 print("Geçerli bir URL girmelisiniz.")
@@ -726,11 +913,17 @@ def main():
 
             try:
                 page_limit = int(input("Kaç sayfa indirilsin? (0 = sınırsız): "))
+                print("------------------------------------------------------------------------")
                 if page_limit < 0:
                     page_limit = 0
             except ValueError:
                 print("Geçersiz sayı, sınırsız olarak devam ediliyor.")
                 page_limit = 0
+
+            # **YENİ: Total Chapters'ı çek**
+            novel_base_url = find_novel_base_url(start_url)
+            total_chapters = get_total_chapters(novel_base_url) 
+            # --------------------------------
 
             soup = fetch_page(start_url)
             if not soup:
@@ -750,7 +943,22 @@ def main():
                 if ans.startswith('e'):
                     current_url = progress.get("current_url", start_url)
                     chapter_number = progress.get("chapter_number", 1)
-                    print(f"{chapter_number}. bölümden devam ediliyor...")
+                    
+                    # Kayıtlı total_chapters'ı al
+                    saved_total_chapters = progress.get('total_chapters', 0)
+                    
+                    # Eğer yeni çekilen total_chapters bilgisi yoksa (0), kayıtlı olanı kullan.
+                    if total_chapters == 0:
+                        total_chapters = saved_total_chapters
+                    # Eğer kayıtlı bilgi varsa, karşılaştır ve büyük olanı kullan
+                    elif saved_total_chapters > 0:
+                        if total_chapters < saved_total_chapters:
+                            print(f"Uyarı: Yeni çekilen toplam bölüm sayısı ({total_chapters}) kayıtlı olandan ({saved_total_chapters}) düşük. Kayıtlı olan kullanılıyor.")
+                            total_chapters = saved_total_chapters
+                        else:
+                            print(f"Toplam bölüm sayısı {saved_total_chapters} iken {total_chapters} olarak güncellendi.")
+
+                    print(f"\n{chapter_number}. bölümden devam edecek...")
                 else:
                     current_url = start_url
                     chapter_number = 1
@@ -760,58 +968,75 @@ def main():
 
             try:
                 pages_downloaded = 0
-                while current_url:
+                while current_url and current_url.lower() != "final":
                     
                     # Sayfa sınırı
                     if page_limit > 0 and pages_downloaded >= page_limit:
                         print(f"Sayfa sınırına ulaşıldı ({page_limit} sayfa). İlerleme kaydediliyor...")
-                        save_progress(novel_dir, chapter_number, current_url)
+                        # total_chapters bilgisini kaydet
+                        save_progress(novel_dir, chapter_number, current_url, total_chapters)
                         break
 
                     # Durdurma talebi
                     if control.stop_event.is_set():
                         print("Durdurma talebi alındı. İlerleme kaydediliyor...")
-                        save_progress(novel_dir, chapter_number, current_url)
+                        # total_chapters bilgisini kaydet
+                        save_progress(novel_dir, chapter_number, current_url, total_chapters)
                         break
 
                     # Duraklatma
                     control.pause_event.wait()
-
-                    print(f"\nBölüm {chapter_number} indiriliyor... ({pages_downloaded+1}/{page_limit if page_limit > 0 else '∞'})")
-                    short_url = current_url.split('/')[-1] if '/' in current_url else current_url
-                    if len(short_url) > 50:
-                        short_url = short_url[:47] + "..."
-                    #print(f"URL: .../{short_url}")
+                    
+                    # İndirme oturumu limiti bilgisi: (1/2), (2/2) vs.
+                    session_limit_display = page_limit if page_limit > 0 else '∞'
+                    session_progress_info = f" ({pages_downloaded+1}/{session_limit_display})"
+                    
+                    # GÜNCELLENDİ: Sadece istenen çıktı formatı. (Kullanıcı isteği: URL ve Toplam bilgisi kaldırıldı.)
+                    print(f"\nBölüm {chapter_number} indiriliyor... {session_progress_info}")
 
                     soup = fetch_page(current_url)
                     if not soup:
-                        save_progress(novel_dir, chapter_number, current_url)
+                        # total_chapters bilgisini kaydet
+                        save_progress(novel_dir, chapter_number, current_url, total_chapters)
                         print("Sayfa çekilemedi. Kalınan yer kaydediliyor.")
                         break
 
                     content = extract_novel_content(soup)
+                    if not content:
+                        # total_chapters bilgisini kaydet
+                        save_progress(novel_dir, chapter_number, current_url, total_chapters)
+                        print("İçerik çıkarılamadı (belki reklam veya son sayfa). Kalınan yer kaydediliyor.")
+                        break
+                        
                     if save_chapter(content, chapter_number, novel_dir):
+                        next_url = find_next_page_url(soup, current_url)
+                        
+                        if next_url and next_url.lower() == current_url.lower():
+                            print("Sonraki sayfa mevcut sayfayla aynı. İşlem sonlandırılıyor.")
+                            save_progress(novel_dir, chapter_number + 1, next_url, total_chapters)
+                            break
+                        if not next_url:
+                            print("Sonraki sayfa bulunamadı. İşlem tamamlandı.")
+                            save_progress(novel_dir, chapter_number + 1, "Final", total_chapters)
+                            break
+                            
+                        # Başarılı kayıtta ilerlemeleri artır ve URL'yi güncelle
                         chapter_number += 1
                         pages_downloaded += 1
-
-                    next_url = find_next_page_url(soup, current_url)
-                    if next_url == current_url:
-                        print("Sonraki sayfa mevcut sayfayla aynı. İşlem sonlandırılıyor.")
-                        save_progress(novel_dir, chapter_number, next_url)
-                        break
-                    if not next_url:
-                        print("Sonraki sayfa bulunamadı. İşlem tamamlandı.")
-                        save_progress(novel_dir, chapter_number, "Final")
+                        current_url = next_url
+                    else:
+                        # Kayıt başarısız (dosya hatası): Dur.
+                        print("Bölüm kaydedilemedi. İşlem durduruluyor ve ilerleme kaydediliyor.")
+                        save_progress(novel_dir, chapter_number, current_url, total_chapters)
                         break
 
-                    #save_progress(novel_dir, chapter_number, next_url)
-                    current_url = next_url
-
+                    # Her başarılı indirmeden sonra bekleme
                     time.sleep(1)
                     
             except KeyboardInterrupt:
                 print("\nCtrl+C yakalandı. İlerleme kaydediliyor...")
-                save_progress(novel_dir, chapter_number, current_url)
+                # total_chapters bilgisini kaydet
+                save_progress(novel_dir, chapter_number, current_url, total_chapters)
                 return
 
             print(f"\nİşlem tamamlandı. Toplam {pages_downloaded} sayfa indirildi.")
@@ -828,10 +1053,12 @@ def main():
                 print("Kayıtlı roman bulunamadı. Lütfen önce yeni bir indirme başlatın.")
                 continue
 
-            print("\n=== Kayıtlı Romanlar ===")
+            # GÜNCELLENMİŞ LİSTELEME FORMATI
+            print("\n==================== Kayıtlı Romanlar ===========================")
             for i, novel in enumerate(saved_novels):
-                print(f"{i+1}. {novel['name']} (Son Bölüm: {novel['current_chapter']})")
-            print("========================")
+                total_chapters_display = f" -- Toplam Sayfa: {novel['total_chapters']}" if novel['total_chapters'] > 0 else ""
+                print(f"{i+1}. {novel['name']} (İndirilen: {novel['downloaded_count']}{total_chapters_display})")
+            print("===================================================================")
 
             try:
                 choice = int(input("Devam etmek istediğiniz romanın numarasını girin: ")) - 1
@@ -847,10 +1074,33 @@ def main():
                     if progress:
                         current_url = progress.get("current_url")
                         chapter_number = progress.get("chapter_number", 1)
-                        if not current_url:
-                            print("Kayıtlı ilerleme dosyasında URL bulunamadı. Yeni indirme olarak başlatılıyor.")
+                        total_chapters = progress.get("total_chapters", 0) # total_chapters'ı yükle
+
+                        if not current_url or current_url.lower() == "final":
+                            if total_chapters > 0 and chapter_number > total_chapters:
+                                print(f"Romanın tüm {total_chapters} bölümü zaten indirilmiş görünüyor.")
+                            else:
+                                print("Kayıtlı ilerleme dosyasında URL bulunamadı veya 'Final' olarak işaretlenmiş. Ana menüye dönülüyor.")
                             continue
-                        print(f"{novel_name} romanının {chapter_number}. bölümünden devam ediliyor...")
+                        
+                        # **YENİ: total_chapters kontrolü ve güncelleme**
+                        if total_chapters == 0:
+                            print("\n!! DİKKAT: Toplam bölüm sayısı (0) bulunamadı. Güncelleniyor...")
+                            # Base URL'yi bulmak için current_url'yi kullan
+                            novel_base_url = find_novel_base_url(current_url) 
+                            # Yeni total_chapters'ı çek
+                            new_total_chapters = get_total_chapters(novel_base_url)
+                            if new_total_chapters > 0:
+                                total_chapters = new_total_chapters
+                                print(f"Güncel toplam bölüm sayısı bulundu: {total_chapters}")
+                                # Hemen progress dosyasını güncelle
+                                save_progress(novel_dir, chapter_number, current_url, total_chapters) 
+                            else:
+                                print("Toplam bölüm sayısı bulunamadı, indirme devam ediyor.")
+                        
+                        # Değişiklik: Roman adı ve bölüm bilgisini göster
+                        print(f"\n{novel_name} romanının {chapter_number}. bölümünden devam edecek...")
+                        
                     else:
                         print("Seçilen roman için ilerleme dosyası bulunamadı. Ana menüye dönülüyor.")
                         continue
@@ -859,63 +1109,84 @@ def main():
                         pages_downloaded = 0
                         try:
                             page_limit = int(input("Kaç sayfa indirilsin? (0 = sınırsız): "))
+                            print("\n------------------------------------------------------------------------")
                             if page_limit < 0:
                                 page_limit = 0
                         except ValueError:
                             print("Geçersiz sayı, sınırsız olarak devam ediliyor.")
                             page_limit = 0
-                        # İndirme döngüsü (sel == 'd' bloğundaki ile aynı)
-                        while current_url:
+                            
+                        # İndirme döngüsü
+                        while current_url and current_url.lower() != "final":
                             # Sayfa sınırı
                             if page_limit > 0 and pages_downloaded >= page_limit:
-                                print(f"Sayfa sınırına ulaşıldı ({page_limit} sayfa). İlerleme kaydediliyor...")
-                                save_progress(novel_dir, chapter_number, current_url)
+                                print(f"Sayfa Limitine ulaşıldı ({page_limit} sayfa). İlerleme kaydediliyor...")
+                                # total_chapters bilgisini kaydet
+                                save_progress(novel_dir, chapter_number, current_url, total_chapters)
                                 break
-
-
 
                             # Durdurma talebi
                             if control.stop_event.is_set():
                                 print("Durdurma talebi alındı. İlerleme kaydediliyor...")
-                                save_progress(novel_dir, chapter_number, current_url)
+                                # total_chapters bilgisini kaydet
+                                save_progress(novel_dir, chapter_number, current_url, total_chapters)
                                 break
 
                             # Duraklatma
                             control.pause_event.wait()
-
-                            print(f"\nBölüm {chapter_number} indiriliyor... ({pages_downloaded+1}/{page_limit if page_limit > 0 else '∞'})")
-                            short_url = current_url.split('/')[-1] if '/' in current_url else current_url
-                            if len(short_url) > 50:
-                                short_url = short_url[:47] + "..."
-                            #print(f"URL: .../{short_url}")
+                            
+                            # İndirme oturumu limiti bilgisi: (1/2), (2/2) vs.
+                            session_limit_display = page_limit if page_limit > 0 else '∞'
+                            session_progress_info = f" ({pages_downloaded+1}/{session_limit_display})"
+                            
+                            # GÜNCELLENDİ: Sadece istenen çıktı formatı. (Kullanıcı isteği: URL ve Toplam bilgisi kaldırıldı.)
+                            print(f"\nBölüm {chapter_number} indiriliyor... {session_progress_info}")
 
                             soup = fetch_page(current_url)
                             if not soup:
-                                print("Sayfa çekilemedi. Sonraki sayfaya geçiliyor.")
+                                # total_chapters bilgisini kaydet
+                                save_progress(novel_dir, chapter_number, current_url, total_chapters)
+                                print("Sayfa çekilemedi. Kalınan yer kaydediliyor.")
                                 break
 
                             content = extract_novel_content(soup)
+                            if not content:
+                                # total_chapters bilgisini kaydet
+                                save_progress(novel_dir, chapter_number, current_url, total_chapters)
+                                print("İçerik çıkarılamadı (belki reklam veya son sayfa). Kalınan yer kaydediliyor.")
+                                break
+                                
                             if save_chapter(content, chapter_number, novel_dir):
+                                next_url = find_next_page_url(soup, current_url)
+                                
+                                if next_url and next_url.lower() == current_url.lower():
+                                    print("Sonraki sayfa mevcut sayfayla aynı. İşlem sonlandırılıyor.")
+                                    save_progress(novel_dir, chapter_number + 1, next_url, total_chapters)
+                                    break
+                                if not next_url:
+                                    print("Sonraki sayfa bulunamadı. İşlem tamamlandı.")
+                                    save_progress(novel_dir, chapter_number + 1, "Final", total_chapters)
+                                    break
+                                
+                                # Başarılı kayıtta ilerlemeleri artır ve URL'yi güncelle
                                 chapter_number += 1
                                 pages_downloaded += 1
-
-                            next_url = find_next_page_url(soup, current_url)
-                            if next_url == current_url:
-                                print("Sonraki sayfa mevcut sayfayla aynı. İşlem sonlandırılıyor.")
-                                save_progress(novel_dir, chapter_number, next_url)
+                                current_url = next_url
+                            else:
+                                # Kayıt başarısız (dosya hatası): Dur.
+                                print("Bölüm kaydedilemedi. İşlem durduruluyor ve ilerleme kaydediliyor.")
+                                save_progress(novel_dir, chapter_number, current_url, total_chapters)
                                 break
-                            if not next_url:
-                                print("Sonraki sayfa bulunamadı. İşlem tamamlandı.")
-                                save_progress(novel_dir, chapter_number, "Final")
-                                break
-
-                            #save_progress(novel_dir, chapter_number, next_url)
-                            current_url = next_url
 
                             time.sleep(1)
+                            
+                        # Döngü sonunda, kaç sayfa indirildiğini göster
+                        print(f"\nİşlem tamamlandı. Toplam {pages_downloaded} sayfa indirildi.")
+                        
                     except KeyboardInterrupt:
                         print("\nCtrl+C yakalandı. İlerleme kaydediliyor...")
-                        save_progress(novel_dir, chapter_number, current_url)
+                        # total_chapters bilgisini kaydet
+                        save_progress(novel_dir, chapter_number, current_url, total_chapters)
                         break
                 else:
                     print("Geçersiz seçim. Ana menüye dönülüyor.")
@@ -933,5 +1204,4 @@ if __name__ == "__main__":
         import traceback
         print("\nBeklenmeyen hata:", e)
         traceback.print_exc()
-        input("\nHata ayrıntısını görmek için Enter'a basın...")
-
+        # input("\nHata ayrıntısını görmek için Enter'a basın...")
