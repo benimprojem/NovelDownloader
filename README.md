@@ -73,10 +73,8 @@ Uygulama, indirilen romanları ve ilerleme bilgilerini aşağıdaki gibi bir diz
 .
 ├── noveldownload.py          # Ana uygulama dosyası
 ├── README.md                 # Bu README dosyası
-└── novels_data/              # İndirilen tüm romanların saklandığı ana dizin
+└── novels/                   # İndirilen tüm romanların saklandığı ana dizin
     ├── Roman_Adi_1/          # İlk romanın dizini
-    │   ├── chapter_001.txt   # İlk bölümün orijinal metni
-    │   ├── chapter_002.txt
     │   ├── progress.json     # Romanın indirme ilerlemesi (son bölüm, URL)
     │   ├── en/               # İngilizce çevirilerin saklandığı dizin
     │   │   ├── chapter_001.txt
@@ -85,9 +83,7 @@ Uygulama, indirilen romanları ve ilerleme bilgilerini aşağıdaki gibi bir diz
     │       ├── chapter_001.txt
     │       └── chapter_002.txt
     └── Roman_Adi_2/          # İkinci romanın dizini
-        ├── chapter_001.txt
-        ├── progress.json
-        └── ...
+            ...
 ```
 
 ## Notlar
@@ -117,9 +113,21 @@ Uygulama, indirilen romanları ve ilerleme bilgilerini aşağıdaki gibi bir diz
 ## 📁 Klasör Yapısı (Kurulum)
 
 Uygulamanın düzgün çalışması için, tüm roman dosyalarınızın aşağıdaki hiyerarşiye uygun bir klasör içinde bulunması gerekmektedir. Varsayılan olarak, uygulamanın çalıştığı dizinde `novels` adında bir ana klasör arar.
-
-/ ├── readnovel.py # Ana uygulama dosyası ├── readnovel_state.json # Okuma durumunun kaydedildiği dosya ├── novels/ # Romanların ana klasörü │ ├── RomanAdı_1/ # Her roman için bir klasör │ │ ├── en/ # İngilizce/Orijinal bölümler │ │ │ └── chapter_0001.txt │ │ │ └── chapter_0002.txt │ │ └── tr/ # Türkçe/Çeviri bölümler (isteğe bağlı) │ │ └── chapter_0001.txt │ └── RomanAdı_2/ │ └── en/ │ └── chapter_0001.txt
-
+```
+/
+├── readnovel.py # Ana uygulama dosyası
+├── readnovel_state.json # Okuma durumunun kaydedildiği dosya
+├── novels/ # Romanların ana klasörü
+    │├── RomanAdı_1/ # Her roman için bir klasör
+        │├── en/ # İngilizce/Orijinal bölümler
+         │└── chapter_0001.txt
+         │└── chapter_0002.txt
+        ││└── tr/ # Türkçe/Çeviri bölümler (isteğe bağlı)
+         ││└── chapter_0001.txt
+    │└── RomanAdı_2/
+        │└── en/
+         │── chapter_0001.txt
+```
 
 ## 🛠️ Kurulum ve Çalıştırma
 
