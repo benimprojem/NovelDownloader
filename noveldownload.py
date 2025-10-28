@@ -181,8 +181,8 @@ def save_chapter(content, chapter_number, novel_dir):
         with open(file_path, 'w', encoding='utf-8') as file:
             file.write(content)
         # Dosya yolunu kısalt
-        short_path = os.path.join(source_lang, os.path.basename(file_path))
-        print(f"Bölüm:{chapter_number} ::-> İçerik: {len(content)}: karakter :{short_path} kaydedildi::....")
+        file_name = os.path.basename(file_path)
+        print(f"Bölüm:{chapter_number} :: -> İçerik:{len(content)} karakter:: {file_name} kaydedildi::.")
         return True
     except Exception as e:
         print(f"Dosya kaydedilirken hata oluştu: {e}")
@@ -662,7 +662,7 @@ def show_translation_menu(novel_dir):
         # Global dil ayarlarını kullan
         print(f"Çeviri dilleri: Kaynak: {source_lang}, Hedef: {target_lang}")
 
-        show_all = input("Tam liste gösterilsin mi? (E/H): ").strip().lower()
+        show_all = "h" #input("Tam liste gösterilsin mi? (E/H): ").strip().lower()
         print("--------------------------------------------------------------------------")
         if show_all.startswith('e'):
             print("Çevrilmemiş bölümler:")
@@ -1078,11 +1078,15 @@ def main():
                 print("Kayıtlı roman bulunamadı. Lütfen önce yeni bir indirme başlatın.")
                 continue
 
-            # GÜNCELLENMİŞ LİSTELEME FORMATI
-            print("\n==================== Kayıtlı Romanlar ===========================")
+            # NOVELLERI LİSTELE
+            print("\n==================== Kayıtlı Noveller ===========================")
             for i, novel in enumerate(saved_novels):
+                total_chapters = novel.get('total_chapters', 0)
+                # İsim 70 karakterden uzunsa kısalt (display_name)
+                novel_name = novel['name']
+                display_name = novel_name[:60] + ('...' if len(novel_name) > 60 else '')
                 total_chapters_display = f" -- Toplam Sayfa: {novel['total_chapters']}" if novel['total_chapters'] > 0 else ""
-                print(f"{i+1}. {novel['name']} (İndirilen: {novel['downloaded_count']}{total_chapters_display})")
+                print(f"{i+1}. {display_name} (İndirilen: {novel['downloaded_count']}{total_chapters_display})")
             print("===================================================================")
 
             try:
@@ -1107,7 +1111,11 @@ def main():
                             else:
                                 print("Kayıtlı ilerleme dosyasında URL bulunamadı veya 'Final' olarak işaretlenmiş. Ana menüye dönülüyor.")
                             continue
-                        
+                            
+                        # total_chapters Tanımlı değilse, NameError hatası vermemek için 0 olarak başlat
+                        if 'total_chapters' not in locals():
+                            total_chapters = 0
+                            
                         # total_chapters kontrolü ve güncelleme**
                         if total_chapters == 0:
                             print("\n!! DİKKAT: Toplam bölüm sayısı (0) bulunamadı. Güncelleniyor...")
