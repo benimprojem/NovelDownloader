@@ -1,15 +1,18 @@
 {
-    "theme": "light",
-    "last_read": {
-        "my avatar is becoming the ultimate boss/en/chapter_0001.txt": 0,
-        "Renegade Immortal/tr/chapter_0001.txt": 0,
-        "Renegade Immortal/tr/chapter_0002.txt": 0,
-        "my avatar is becoming the ultimate boss/tr/chapter_0001.txt": 0,
-        "my avatar is becoming the ultimate boss/tr/chapter_0002.txt": 0,
-        "almighty student/tr/chapter_0002.txt": 0,
-        "almighty student/tr/chapter_0001.txt": 0,
-        "Disciples Are All Villains/tr/chapter_0001.txt": 0,
-        "Everyone Else is a Returnee/tr/chapter_0001.txt": 0,
-        "The Ultimate Student/tr/chapter_0001.txt": 0
-    }
+    "theme": "dark",
+    "novel_progress": {
+        "Almighty Student": {
+            "key": "Almighty Student/tr/chapter_0001.txt",
+            "scroll_pos": 0.0
+        },
+        "Everyone Else is a Returnee": {
+            "key": "Everyone Else is a Returnee/tr/chapter_0002.txt",
+            "scroll_pos": 0.0
+        },
+        "The Ultimate Student": {
+            "key": "The Ultimate Student/tr/chapter_0001.txt",
+            "scroll_pos": 0.0
+        }
+    },
+    "last_viewed_novel": "Almighty Student"
 }
