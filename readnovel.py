@@ -31,7 +31,7 @@ THEMES = {
         "button_fg": "white",
         "highlight_bg": "#555555",
         "list_bg": "#2e2e2e",
-        "list_fg": "white"
+        "list_fg": "#ffffff"
     }
 }
 
@@ -48,10 +48,6 @@ class NovelReaderApp:
         self.current_language = None 
         
         self.current_content = []  
-        self.current_read_page = 0
-        self.max_read_page = 0
-        self.page_line_count = 0 
-        
         self.chapter_lists = {} 
         self.current_chapters_list = [] 
         
@@ -60,36 +56,35 @@ class NovelReaderApp:
         
         self.setup_ui()
         self.apply_theme(self.current_theme)
+        # load_novels_from_dir, novel listesini doldurur ve load_last_read'i tetikler
         self.load_novels_from_dir(initial_load=True) 
         self.master.protocol("WM_DELETE_WINDOW", self.on_closing)
 
     def setup_ui(self):
-        # --- ANA YAPININ YENİDEN OLUŞTURULMASI ---
+        # --- ANA YAPININ KURULUMU ---
         
-        # 1. Üst Kontrol Çubuğu Çerçevesi (Tüm genişlikte, sağa hizalı butonlar)
         self.top_controls_frame = ttk.Frame(self.master)
         self.top_controls_frame.pack(fill=tk.X, padx=10, pady=(10, 5))
         
-        # Butonları tutacak çerçeve (sağa hizalamak için)
+        # 1. YENİ EKLENTİ: Okunan novelin adını gösteren etiket
+        self.novel_title_label = ttk.Label(self.top_controls_frame, text="Novel Seçilmedi", font=("Arial", 14, "bold"))
+        self.novel_title_label.pack(side=tk.LEFT, padx=5, pady=2)
+        
+        # Sağ tarafa yaslı butonlar için çerçeve
         self.button_align_frame = ttk.Frame(self.top_controls_frame)
         self.button_align_frame.pack(side=tk.RIGHT)
         
-        # Butonları yerleştirme (önceki self.top_buttons_right'ın içeriği)
-        # Butonları yatay bir sırada paketliyoruz.
         ttk.Button(self.button_align_frame, text="Novel", command=self.select_novels_dir).pack(side=tk.LEFT, padx=2)
         ttk.Button(self.button_align_frame, text="Kaydet", command=lambda: self.save_state(silent=False)).pack(side=tk.LEFT, padx=2)
         ttk.Button(self.button_align_frame, text="⭐", command=self.toggle_theme).pack(side=tk.LEFT, padx=2)
         ttk.Button(self.button_align_frame, text="PDF", command=lambda: messagebox.showinfo("Bilgi", "PDF özelliği şimdilik işlevsel değil.")).pack(side=tk.LEFT, padx=2)
         
-        # 2. Ana İçerik Çerçevesi (Sol ve Sağ alanları tutar)
         self.content_frame = ttk.Frame(self.master)
         self.content_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=(5, 10))
         self.content_frame.grid_columnconfigure(0, weight=5) 
         self.content_frame.grid_columnconfigure(1, weight=2) 
         self.content_frame.grid_rowconfigure(0, weight=1)
 
-        # --- Sol Bölüm (Sekmeli İçerik: Listeler/Okuyucu) ---
-        # Artık self.main_frame yerine self.content_frame'e yerleştirildi.
         self.left_frame = ttk.Frame(self.content_frame, relief=tk.SUNKEN)
         self.left_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 5))
         self.left_frame.grid_rowconfigure(0, weight=1)
@@ -123,13 +118,14 @@ class NovelReaderApp:
         self.text_area_scrollbar = ttk.Scrollbar(self.reader_tab)
         self.text_area_scrollbar.grid(row=0, column=1, sticky="ns")
 
+        # 2. YENİ EKLENTİ: padx=20 ile sağ ve sol iç boşluk ekleniyor.
         self.text_area = tk.Text(self.reader_tab, wrap=tk.WORD, font=("Arial", 12), state=tk.DISABLED,
-                                 yscrollcommand=self.text_area_scrollbar.set)
+                                 yscrollcommand=self.text_area_scrollbar.set, padx=20)
         self.text_area.grid(row=0, column=0, sticky="nsew")
         
         self.text_area_scrollbar.config(command=self.text_area.yview)
         
-        # Sol Alt Kontrol Çubuğu (BÖLÜM BAZLI İLERLEME/GERİLEME)
+        # Sol Alt Kontrol Çubuğu
         self.bottom_controls_left = ttk.Frame(self.left_frame)
         self.bottom_controls_left.grid(row=1, column=0, sticky="ew", pady=5)
         self.bottom_controls_left.grid_columnconfigure(0, weight=1)
@@ -148,7 +144,6 @@ class NovelReaderApp:
         self.toggle_read_controls(False)
 
         # --- Sağ Bölüm (Sekmeli Bölüm Listesi) ---
-        # Butonlar burdan kaldırıldı, sadece Sekmeli Liste kaldı.
         self.right_frame = ttk.Frame(self.content_frame, relief=tk.RAISED)
         self.right_frame.grid(row=0, column=1, sticky="nsew", padx=(5, 0))
         self.right_frame.grid_rowconfigure(0, weight=1) 
@@ -159,15 +154,12 @@ class NovelReaderApp:
         self.chapter_notebook.grid(row=0, column=0, sticky="nsew")
         self.chapter_notebook.bind('<<NotebookTabChanged>>', self.on_chapter_tab_change) 
         
-        # --- Orijinal (en) Sekmesi ---
         self.original_tab = self.create_chapter_list_tab("Orijinal (en)", 'en')
         self.chapter_notebook.add(self.original_tab, text="Orijinal (en)")
 
-        # --- Çeviri (tr) Sekmesi ---
         self.translation_tab = self.create_chapter_list_tab("Çeviri (tr)", 'tr')
         self.chapter_notebook.add(self.translation_tab, text="Çeviri (tr)")
 
-        # --- PDF Sekmesi ---
         self.pdf_tab = ttk.Frame(self.chapter_notebook)
         ttk.Label(self.pdf_tab, text="PDF özelliği henüz aktif değil.").pack(pady=20)
         self.chapter_notebook.add(self.pdf_tab, text="PDF")
@@ -198,11 +190,14 @@ class NovelReaderApp:
         self.master.config(bg=theme['bg'])
         style = ttk.Style()
         style.theme_use('default')
-        # Yeni çerçeveleri de ayarla
         style.configure("TFrame", background=theme['bg'])
         style.configure("TLabel", background=theme['bg'], foreground=theme['fg'])
         style.configure("TButton", background=theme['button_bg'], foreground=theme['button_fg'])
         style.map('TButton', background=[('active', theme['highlight_bg'])])
+        
+        # Novel başlık etiketi için tema uygulama
+        self.novel_title_label.config(background=theme['bg'], foreground=theme['fg'])
+        
         self.text_area.config(bg=theme['text_bg'], fg=theme['text_fg'], insertbackground=theme['text_fg'])
         self.read_page_info_label.config(background=theme['bg'], foreground=theme['fg'])
 
@@ -218,11 +213,12 @@ class NovelReaderApp:
 
         self.current_theme = theme_name
         self.state['theme'] = theme_name
-        self.save_state(silent=True) 
         
     def toggle_theme(self):
         new_theme = 'dark' if self.current_theme == 'light' else 'light'
         self.apply_theme(new_theme)
+        self.state['theme'] = new_theme
+        self.save_state(silent=True)
         
     def toggle_read_controls(self, is_reading):
         """Okuma modunda sayfalama butonlarını açar/kapatır."""
@@ -231,6 +227,8 @@ class NovelReaderApp:
         self.next_page_button.config(state=state)
         if not is_reading:
             self.read_page_info_label.config(text="Bölüm Açılmadı")
+            self.novel_title_label.config(text="Novel Seçilmedi") # Novel Seçilmedi
+            self.current_novel = None
 
 
     # --- Novel Listeleme ve Yükleme İşlemleri (Aynı Kaldı) ---
@@ -281,7 +279,10 @@ class NovelReaderApp:
         """Novel Listesi sekmesini günceller."""
         self.novel_list_box.delete(0, tk.END)
 
-        for novel_name, data in self.novel_data.items():
+        sorted_novel_names = sorted(self.novel_data.keys())
+
+        for novel_name in sorted_novel_names:
+            data = self.novel_data[novel_name]
             en_count = len(data['en'])
             tr_count = len(data['tr'])
             display_text = f"{novel_name} ({en_count} / {tr_count})"
@@ -293,16 +294,69 @@ class NovelReaderApp:
             self.update_chapter_list_boxes()
 
     def on_novel_select(self, event):
-        """Novel listesinde bir seçim yapıldığında sağdaki bölüm listelerini günceller."""
+        """Novel listesinde bir seçim yapıldığında sağdaki bölüm listelerini günceller VE O NOVELE AİT SON OKUNAN BÖLÜMÜ YÜKLER."""
         try:
-            selected_index = self.novel_list_box.curselection()[0]
+            selected_index_tuple = self.novel_list_box.curselection()
+            if not selected_index_tuple:
+                return
+            selected_index = selected_index_tuple[0]
             selected_item = self.novel_list_box.get(selected_index)
             novel_name = selected_item.split(' (')[0]
         except IndexError:
             return
+        
+        # Eğer zaten seçili olan novel (ve bir bölüm açıksa) tekrar seçilirse (örn. liste tazelendi)
+        if novel_name == self.current_novel and self.current_chapter_file:
+             self.update_chapter_list_boxes()
+             return
 
         self.current_novel = novel_name
-        self.update_chapter_list_boxes()
+        self.novel_title_label.config(text=novel_name) # Üstteki etiketi güncelle
+        self.update_chapter_list_boxes() # Bu, sağdaki listeleri doldurur
+        
+        # --- Novel için kayıtlı ilerlemeyi yükleme (Restart sırasında veya manuel seçildiğinde) ---
+        novel_progress = self.state.get('novel_progress', {})
+        progress_to_load = novel_progress.get(novel_name)
+
+        if progress_to_load:
+            try:
+                key_to_load = progress_to_load.get("key")
+                if not key_to_load:
+                    self.clear_reader_and_controls()
+                    return
+
+                # Anahtardan bilgileri ayır: "NovelAdı/dil/bölüm.txt"
+                _novel_name, language, chapter_file = key_to_load.split('/')
+                
+                # Doğru dil sekmesini seç (en=0, tr=1)
+                tab_id = 0 if language == 'en' else 1
+                self.chapter_notebook.select(tab_id)
+                
+                listbox = self.chapter_lists.get(language)
+                
+                # Bölüm, listede mevcut mu kontrol et
+                if listbox and chapter_file in list(listbox.get(0, tk.END)):
+                    chap_idx = list(listbox.get(0, tk.END)).index(chapter_file)
+                    
+                    # O bölümü listede seçili hale getir
+                    listbox.selection_clear(0, tk.END)
+                    listbox.selection_set(chap_idx)
+                    listbox.activate(chap_idx)
+                    listbox.see(chap_idx)
+                    
+                    # current_language'i load_chapter_from_list'ten önce ayarlayın.
+                    self.current_language = language 
+                    
+                    # Seçili bölümü yüklemek için ana fonksiyonu çağır
+                    self.load_chapter_from_list(None)
+                else:
+                    self.clear_reader_and_controls()
+            except Exception as e:
+                print(f"on_novel_select içinde son bölüm yüklenirken hata: {e}")
+                self.clear_reader_and_controls()
+        else:
+            # Bu novel için kayıtlı bir "son okunan" bölüm yoksa, okuyucuyu temizle
+            self.clear_reader_and_controls()
         
     def update_chapter_list_boxes(self):
         """Sağdaki tüm Bölüm Listesi sekme içeriklerini günceller."""
@@ -324,50 +378,75 @@ class NovelReaderApp:
 
     def get_current_list_and_language(self):
         """Aktif Listbox ve dil anahtarını döndürür."""
-        selected_tab_text = self.chapter_notebook.tab(self.chapter_notebook.select(), "text")
-        
+        try:
+            selected_tab_text = self.chapter_notebook.tab(self.chapter_notebook.select(), "text")
+        except tk.TclError:
+             return None, None, None
+             
         if 'Orijinal' in selected_tab_text:
             lang_key = 'en'
         elif 'Çeviri' in selected_tab_text:
             lang_key = 'tr'
         else:
-            return None, None, None # PDF sekmesi vb.
+            return None, None, None
 
         listbox = self.chapter_lists.get(lang_key)
         return listbox, lang_key, self.novel_data.get(self.current_novel, {}).get(lang_key, [])
 
 
     def load_chapter_from_list(self, event):
-        """Sağdaki listeden çift tıklama ile bölümü yükler."""
+        """Sağdaki listeden çift tıklama (veya on_novel_select) ile bölümü yükler."""
         listbox, lang_key, chapter_list = self.get_current_list_and_language()
         
         if not listbox or not self.current_novel:
             return
 
         try:
-            selected_index = listbox.curselection()[0]
+            selected_index_tuple = listbox.curselection()
+            if not selected_index_tuple:
+                return
+            selected_index = selected_index_tuple[0]
             chapter_file = listbox.get(selected_index)
             if "bölümü yok" in chapter_file:
                  return
         except IndexError:
             return
 
-        if self.current_novel and self.current_chapter_file:
-            self.save_state(silent=True)
+        # YENİ KONTROL: Yüklemeden önce, eğer farklı bir bölüm açıksa, o bölümün pozisyonunu kaydet (sadece bölüm bilgisi).
+        if self.current_novel and self.current_chapter_file and self.current_chapter_file != chapter_file:
+            self.save_state(silent=True) 
 
+        # Yeni bölümü state'e set et
         self.current_chapter_file = chapter_file
         self.current_language = lang_key
+        self.novel_title_label.config(text=self.current_novel) # Üstteki etiketi güncelle
         
         base_path = self.novel_data[self.current_novel]['path']
         dir_name = self.current_language 
         file_path = os.path.join(base_path, dir_name, chapter_file)
 
+        # Pozisyonu state'den al (Artık her zaman 0.0)
+        scroll_pos = 0.0 
+        
+        # Kayıtlı ilerleme kontrolü (sadece doğru bölüm olup olmadığını anlamak için gerekli)
+        novel_progress = self.state.get('novel_progress', {})
+        progress_to_load = novel_progress.get(self.current_novel)
+        
+        if progress_to_load:
+            key_to_load = progress_to_load.get("key")
+            full_key = f"{self.current_novel}/{self.current_language}/{self.current_chapter_file}"
+            
+            # Eğer yüklemeye çalıştığımız bölüm, kayıtlı "son bölüm" ise, pozisyon yine 0.0 olarak kalır.
+            if key_to_load == full_key:
+                scroll_pos = 0.0
+        
         try:
             with open(file_path, 'r', encoding='utf-8') as f:
                 self.current_content = f.read()
             
             self.left_notebook.select(self.reader_tab)
-            self.display_full_chapter(self.current_content)
+            # Pozisyonu gönder (her zaman 0.0)
+            self.display_full_chapter(self.current_content, scroll_pos)
             self.toggle_read_controls(True)
             
         except Exception as e:
@@ -393,50 +472,50 @@ class NovelReaderApp:
         new_index = current_index + direction
         
         if 0 <= new_index < len(current_chapter_list):
-            self.save_state(silent=True) 
-            next_chapter_file = current_chapter_list[new_index]
+            self.save_state(silent=True) # Önceki bölümün pozisyonunu kaydet
             
-            self.current_chapter_file = next_chapter_file
+            # Sadece listedeki seçimi değiştir ve yüklemeyi tetikle
+            listbox = self.chapter_lists.get(self.current_language)
+            if listbox:
+                listbox.selection_clear(0, tk.END)
+                listbox.selection_set(new_index)
+                listbox.activate(new_index)
+                listbox.see(new_index) 
+                
+                # Seçimi yükle (load_chapter_from_list'in event'i None)
+                self.load_chapter_from_list(None) 
             
-            base_path = self.novel_data[self.current_novel]['path']
-            file_path = os.path.join(base_path, self.current_language, next_chapter_file)
-            
-            try:
-                with open(file_path, 'r', encoding='utf-8') as f:
-                    content = f.read()
-                
-                self.display_full_chapter(content)
-                self.toggle_read_controls(True)
-                
-                listbox = self.chapter_lists.get(self.current_language)
-                if listbox:
-                    listbox.selection_clear(0, tk.END)
-                    listbox.selection_set(new_index)
-                    listbox.activate(new_index)
-                    listbox.see(new_index) 
-                
-            except Exception as e:
-                messagebox.showerror("Hata", f"Bölüm değiştirilirken hata oluştu: {e}")
         else:
             messagebox.showinfo("Bilgi", "Başka bölüm bulunamadı.")
             
-    # --- Tam Bölüm Gösterimi (Aynı Kaldı) ---
-    def display_full_chapter(self, content):
-        """Okuma alanına tam bölüm içeriğini yükler."""
+    # --- Tam Bölüm Gösterimi ---
+    def display_full_chapter(self, content, scroll_pos=0.0):
+        """Okuma alanına tam bölüm içeriğini yükler ve belirtilen pozisyona kaydırır."""
         self.text_area.config(state=tk.NORMAL) 
         self.text_area.delete(1.0, tk.END)
         self.text_area.insert(tk.END, content)
         self.text_area.config(state=tk.DISABLED)
         
-        self.text_area.yview_moveto(0)
+        # Kayıtlı pozisyona git (Artık her zaman 0.0 olacak)
+        self.text_area.yview_moveto(scroll_pos)
         
         self.read_page_info_label.config(text=f"Bölüm: {self.current_chapter_file} | Dil: {self.current_language.upper()} (Tam)")
         
         self.prev_page_button.config(text="<< Geri", state=tk.NORMAL) 
         self.next_page_button.config(text="İleri >>", state=tk.NORMAL) 
 
+    # --- YENİ YARDIMCI FONKSİYON ---
+    def clear_reader_and_controls(self):
+        """Okuma alanını temizler ve butonları devre dışı bırakır."""
+        self.text_area.config(state=tk.NORMAL) 
+        self.text_area.delete(1.0, tk.END)
+        self.text_area.config(state=tk.DISABLED)
+        self.toggle_read_controls(False)
+        self.current_chapter_file = None
+        self.current_language = None
 
-    # --- Durum Kaydetme/Yükleme İşlemleri (Sessiz Kayıt Güncellendi) ---
+
+    # --- Durum Kaydetme/Yükleme İşlemleri (Aynı Kaldı) ---
     def load_state(self):
         if os.path.exists(STATE_FILE):
             try:
@@ -447,16 +526,43 @@ class NovelReaderApp:
         return {}
 
     def save_state(self, silent=False):
-        if self.current_novel and self.current_chapter_file and self.current_language:
-            key = f"{self.current_novel}/{self.current_language}/{self.current_chapter_file}"
-            last_read = self.state.get('last_read', {})
-            # Text widget'ın scroll pozisyonu (ilk görünen satır/yüzde) kaydedilebilir
-            # Şimdilik basitçe ilk sayfa (0) kaydediliyor.
-            last_read[key] = 0 
-            self.state['last_read'] = last_read
+        
+        # Sadece tema değişimi veya uygulama kapanışı gibi durumlarda (bölüm açık değilken) kaydet
+        if not (self.current_novel and self.current_chapter_file and self.current_language):
+            # Sadece temayı kaydet (eğer değiştiyse)
+            try:
+                self.state['theme'] = self.current_theme
+                if self.current_novel:
+                    self.state['last_viewed_novel'] = self.current_novel
+                with open(STATE_FILE, 'w') as f:
+                    json.dump(self.state, f, indent=4)
+            except Exception:
+                pass
+            return
+
+        # Scroll pozisyonu kaydı devre dışı bırakıldı.
+        scroll_pos = 0.0 
+        
+        # O novel için yeni ilerleme verisi
+        progress_data = {
+            "key": f"{self.current_novel}/{self.current_language}/{self.current_chapter_file}",
+            "scroll_pos": scroll_pos # Her zaman 0.0 olarak kaydedilecek
+        }
+        
+        # Ana ilerleme listesini al veya oluştur
+        novel_progress = self.state.get('novel_progress', {})
+        
+        # O novele ait kaydı GÜNCELLE
+        novel_progress[self.current_novel] = progress_data
+        
+        # State'e geri yaz
+        self.state['novel_progress'] = novel_progress
+        self.state['last_viewed_novel'] = self.current_novel # Uygulama açılışı için
+        self.state['theme'] = self.current_theme
         
         try:
             with open(STATE_FILE, 'w') as f:
+                # Pozisyonun float olarak doğru yazıldığından emin ol
                 json.dump(self.state, f, indent=4)
             if not silent:
                 messagebox.showinfo("Bilgi", "Okuma durumu başarıyla kaydedildi.")
@@ -465,68 +571,35 @@ class NovelReaderApp:
                 messagebox.showerror("Hata", f"Okuma durumu kaydedilemedi: {e}")
 
     def load_last_read(self):
-        last_read = self.state.get('last_read', {})
-        if not last_read:
+        novel_name = self.state.get('last_viewed_novel')
+
+        if not novel_name:
             return
-        
-        key = next(iter(last_read.keys()), None) 
 
-        if key:
-            try:
-                novel_name, language, chapter_file = key.split('/')
+        # Novel'in listede olduğundan emin ol
+        if novel_name not in self.novel_data:
+            return
+
+        for i, item in enumerate(self.novel_list_box.get(0, tk.END)):
+            # Tam eşleşen novel'i bul
+            if item.startswith(novel_name):
+                # Novel listesinde seçimi ayarla
+                self.novel_list_box.selection_clear(0, tk.END)
+                self.novel_list_box.selection_set(i)
+                self.novel_list_box.activate(i)
                 
-                for i, item in enumerate(self.novel_list_box.get(0, tk.END)):
-                    if item.startswith(novel_name):
-                        self.novel_list_box.selection_clear(0, tk.END)
-                        self.novel_list_box.selection_set(i)
-                        self.novel_list_box.activate(i)
-                        self.current_novel = novel_name
+                # Bu, otomatik olarak self.on_novel_select'i tetikleyecektir (event=None)
+                # ve o da doğru bölümü ve pozisyonu yükleyecektir.
+                self.on_novel_select(None) 
+                break
 
-                        tab_id = 0 if language == 'en' else 1
-                        self.chapter_notebook.select(tab_id)
-                        self.current_language = language
-
-                        self.update_chapter_list_boxes() 
-                        listbox = self.chapter_lists.get(language)
-
-                        if listbox and chapter_file in listbox.get(0, tk.END):
-                            chap_idx = list(listbox.get(0, tk.END)).index(chapter_file)
-                            listbox.selection_clear(0, tk.END)
-                            listbox.selection_set(chap_idx)
-                            listbox.activate(chap_idx)
-                            listbox.see(chap_idx)
-
-                            self.load_chapter_from_list(None)
-                            break
-
-            except Exception as e:
-                print(f"Son okunan yüklenirken hata: {e}")
-                pass
 
     def on_closing(self):
+        # Uygulama kapanırken son pozisyonu kaydet
         self.save_state(silent=True)
         self.master.destroy()
 
 if __name__ == "__main__":
-    # Test klasör yapısını oluşturma (Aynı kaldı)
-    if not os.path.exists(NOVELS_DIR):
-        try:
-            os.makedirs(os.path.join(NOVELS_DIR, "ExampleNovel", "en"))
-            os.makedirs(os.path.join(NOVELS_DIR, "ExampleNovel", "tr"))
-            with open(os.path.join(NOVELS_DIR, "ExampleNovel", "en", "chapter_0001.txt"), "w", encoding="utf-8") as f:
-                f.write("Bu, örnek romanın orijinal ilk bölümüdür.\n" * 50)
-            with open(os.path.join(NOVELS_DIR, "ExampleNovel", "tr", "chapter_0001.txt"), "w", encoding="utf-8") as f:
-                f.write("Bu, örnek romanın çeviri ilk bölümüdür.\n" * 50)
-            with open(os.path.join(NOVELS_DIR, "ExampleNovel", "en", "chapter_0002.txt"), "w", encoding="utf-8") as f:
-                f.write("İkinci Bölüm Orijinal metni.\n" * 60)
-            with open(os.path.join(NOVELS_DIR, "ExampleNovel", "en", "chapter_0003.txt"), "w", encoding="utf-8") as f:
-                f.write("Üçüncü Bölüm Orijinal metni.\n" * 70)
-            with open(os.path.join(NOVELS_DIR, "ExampleNovel", "en", "chapter_0004.txt"), "w", encoding="utf-8") as f:
-                f.write("Dördüncü Bölüm Orijinal metni.\n" * 80)
-            
-        except Exception as e:
-            print(f"Varsayılan klasör yapısı oluşturulurken hata: {e}")
-
     root = tk.Tk()
     app = NovelReaderApp(root)
     root.mainloop()
