@@ -1,5 +1,5 @@
 ############################################
-# NovelDovnloader.py
+# NovelDovnload.py
 # ver. 0.9.5
 # 30.10.2025
 # indirme ve çeviri işlemlerini yapar. 
@@ -1273,3 +1273,4 @@ if __name__ == "__main__":
         import traceback
         print("\nBeklenmeyen hata:", e)
         traceback.print_exc()
+
