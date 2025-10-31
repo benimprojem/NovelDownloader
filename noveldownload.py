@@ -1,3 +1,13 @@
+############################################
+# NovelDovnloader.py
+# ver. 0.9.5
+# 30.10.2025
+# indirme ve çeviri işlemlerini yapar. 
+# Halen hataları ve eksikleri olabilir. Gördüğüm tüm hataları gidermeye çalıştım.
+# Optimize edilmemiştir. İçerisinde halen gereksiz veya fazladan kod bulunabilir..
+# Fikir: Dissconnectted.  Kodlayan: Gemini. :)
+# 
+#############################################
 import os
 import time
 import re
@@ -17,9 +27,9 @@ except ImportError:
     input("Devam etmek için Enter tuşuna basın...") 
     exit(1)
     
-# Desteklenen diller ve kodları
-source_lang = "en"
-target_lang = "tr"
+
+source_lang = "en"  # indirilen kaynak dili
+target_lang = "tr"  # çeviri hedef dili
 
 def fetch_page(url):
     """Web sayfasını çeker ve BeautifulSoup nesnesi olarak döndürür."""
@@ -61,7 +71,7 @@ def find_novel_base_url(chapter_url):
         
     return chapter_url # Zaten ana sayfa olabilir
 
-# Novelin ana sayfasından toplam bölüm sayısını çeker
+# Novelin ana sayfasından Novelin bilglerini çeker
 def get_total_chapters(novel_base_url):
     # Novelin ana sayfasından toplam bölüm sayısını çeker.
     print(f"Toplam bölüm sayısı kontrol ediliyor: {novel_base_url}")
@@ -71,9 +81,28 @@ def get_total_chapters(novel_base_url):
         return 0
     
     try:
-        # <p><strong>Chapters: </strong> <span>4720</span></p> yapısını ara
-        strong_tag = soup.find('strong', string=lambda t: t and 'Chapters:' in t)
+        # soup :içerisinden novel ile ilgili bilgiler çekilip kaydedilecek.
+        # Kitabın adı: {novel_name} <div class="name box"> <h1>Walker Of The Worlds</h1>.../ h1 içerisinde 
+        # Kitabın tanıtım yazısı: {novel_content} <div class="section-body summary"> <p class="content" .../  <p  içerisinde
+        # kitabın yazarı:  {novel_author} <div class="meta box mt-1 p-10"><p><a href="..." title="Grand_void_daoist"> .../  <a title="yazar adı" den alına bilir.
+        # en son güncellenme tarihi: {last_update} <div class="meta box mt-1 p-10"><p><strong>Last update: </strong><span>güncellenme tarihi burada</span> ... / <span> içeirği, 1 hafta önce, 3 ay önce gibi..
+        # durum : {status} <div class="meta box mt-1 p-10"><p><strong>Status :</strong> <a href="/status/OnGoing" title="Read OnGoing Manga"> <span>OnGoing</span></a> .../ span içerisi alınır 
+        # Kitabın türü: {genres} <div class="meta box mt-1 p-10"><p><strong>Genres :</strong> <a href="/genres/xianxia" title="Read Xianxia Manga"> Xianxia,</a> .../ tüm <a ların içeiği alına bilir.. genelde birden fazladır.
         
+        
+        # Bu bilgileri öncelikle buraya. novel_adı/en/chpter_0000.txt olarak kaydet, Eğer Dosya varsa güncelle..
+            #Kayıt sıralaması:
+            # Kitabın adı : {novel_name}
+            # Yazar : {novel_author}
+            # Durum : {status}
+            # Toplam bölüm: {count_text}
+            # Son Güncelleme tarihi: {last_update}
+            # Tür : {genres}
+            # Kitabın tanıtım yazısı: {novel_content}
+        
+        # Fonksiyon orjinal olarak Toplam bölüm sayısı geri döndürür korunmalı.
+        # Toplam bölüm sayısı: <p><strong>Chapters: </strong> <span>4720</span></p> yapısını ara
+        strong_tag = soup.find('strong', string=lambda t: t and 'Chapters:' in t)
         if strong_tag and strong_tag.parent:
             # strong'un kardeşi olan span etiketini bul
             span_tag = strong_tag.parent.find('span')
@@ -81,7 +110,7 @@ def get_total_chapters(novel_base_url):
             if span_tag:
                 count_text = span_tag.get_text(strip=True)
                 if count_text.isdigit():
-                    print(f"Başarılı: Toplam bölüm sayısı: {count_text}")
+                    print(f"Toplam bölüm: {count_text}")
                     return int(count_text)
         
         print("Uyarı: Toplam bölüm sayısı bilgisi ('Chapters: XX') sayfada bulunamadı. 0 olarak ayarlandı.")
@@ -119,7 +148,7 @@ def find_next_page_url(soup, current_url):
         return None
 def _clear_name(yazi):
     # Temizlenecek kelimeler (büyük/küçük harfe duyarsız)
-    no_words = ['read', 'mtl', '-', 're:', ',','.']
+    no_words = ['read', 'mtl', '-', 're:', ',' ,'.' ,'_']
     
     # Tüm istenmeyen kelimeleri kaldır
     for word in no_words:
@@ -264,7 +293,7 @@ def extract_novel_name(soup):
         return title.strip()
     except Exception:
         return "Bilinmeyen Novel"
-        
+'''        
 def find_novel_base_url(chapter_url):
     # Kaba tahmin: URL'nin son chapter-XXXX kısmını kaldır.
     # Örn: https://.../novel-name/chapter-10/ -> https://.../novel-name/
@@ -302,7 +331,7 @@ def get_total_chapters(novel_base_url):
     except Exception as e:
         print(f"Toplam bölüm sayısı çekilirken hata oluştu: {e}")
         return 0        
-    
+    '''
 # GÜNCELLENDİ: total_chapters parametresi eklendi
 def save_progress(novel_dir, chapter_number, current_url, total_chapters=0):
     ##İlerlemeyi novel klasörüne progress.json olarak yazar.
@@ -498,6 +527,7 @@ def translate_text_en_to_tr(text, control=None, source_lang='en', target_lang='t
         #print(f"Çeviri hatası: {short}:::Orjinal Olarak Kaydedildi.")
         print(f"Çeviri Yapılamadı :::: Orjinal Olarak Kaydedildi.")
         return text  # Genel hatada da orijinal metinle akışı sürdür
+        
 def list_untranslated_chapters(novel_dir):
     ##Çevrilmemiş bölümleri listeler.
     en_dir = os.path.join(novel_dir, source_lang)
@@ -815,7 +845,7 @@ def choose_novel_menu():
         print("Çevrilecek roman bulunamadı.")
         return None
     
-    print("_________________________________ Kayıtlı Noveller __________________________________")
+    print("████████████████████████████████ Kayıtlı Noveller ████████████████████████████████")
     for i, novel_data in enumerate(novels, 1):
         total_info = f"/{novel_data['total_chapters']}" if novel_data['total_chapters'] > 0 else ""
         print(f"{i}. {novel_data['name']} (Çevrilmemiş Bölüm: {novel_data['untranslated_count']}{total_info})")
@@ -848,13 +878,13 @@ def show_global_translation_menu():
         show_translation_menu(novel_dir)
 
 def show_main_menu():
-    print("\n_________________Ana Menü_________________")
+    print("\n███████████████████ Ana Menü ███████████████████")
     print("|  D - Yeni İndirme Başlat")
     print("|  C - Kayıtlı İndirmelere Devam Et")
     print("|  T - Kayıtlı Novel Çevir")
     print("|  Q - Çıkış")
     choice = input("Seçiminizi yapın: ").strip().lower()
-    print("-=========================================-\n")
+    print("________________________________________________\n")
     return choice
 
 # Kayıtlı Noveller Listesi
@@ -1082,7 +1112,7 @@ def main():
                 continue
 
             # NOVELLERI LİSTELE
-            print("\n================================= Kayıtlı Noveller ================================")
+            print("\n████████████████████████████████ Kayıtlı Noveller ████████████████████████████████")
             for i, novel in enumerate(saved_novels):
                 total_chapters = novel.get('total_chapters', 0)
                 # İsim 70 karakterden uzunsa kısalt (display_name)
@@ -1090,7 +1120,7 @@ def main():
                 display_name = novel_name[:60] + ('...' if len(novel_name) > 60 else '')
                 total_chapters_display = f" -- Toplam: {novel['total_chapters']}" if novel['total_chapters'] > 0 else ""
                 print(f"{i+1}. {display_name} (İndirilen: {novel['downloaded_count']}{total_chapters_display})")
-            print("=====================================================================================")
+            print("████████████████████████████████████████████████████████████████████████████████████")
 
             try:
                 choice = int(input("Devam etmek istediğiniz romanın numarasını girin: ")) - 1
