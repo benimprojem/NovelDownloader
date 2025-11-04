@@ -1,12 +1,12 @@
 ############################################
-# NovelDovnloader.py için NovelReader.py
-# ver. 0.9.5
+# NovelDovnload.py için NovelReader.py
+# ver. 0.9.6
 # 30.10.2025
 # Pdf çevirici gelecekte eklenecek. 
 #   pdf çevirici her 100 sayfayı gruplandırıp tek kitap olarak kaydetmek için kullanılacak.
 # Halen hataları ve eksikleri olabilir. Gğrdüğüm tüm hatalrı gidermeye çalıştım.
 # Optimize edilmemiştir. İçerisinde halen gereksiz veya fazladan kod bulunabilir..
-# Fikir: Dissconnectted.  Kodlayan: Gemini. :)
+# Edit: D'ssconnecTed.  Kodlayan: Gemini. :)
 # 
 #############################################
 import tkinter as tk
@@ -632,3 +632,4 @@ if __name__ == "__main__":
     root = tk.Tk()
     app = NovelReaderApp(root)
     root.mainloop()
+
