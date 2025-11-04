@@ -1,3 +1,14 @@
+############################################
+# NovelDovnloader.py için NovelReader.py
+# ver. 0.9.5
+# 30.10.2025
+# Pdf çevirici gelecekte eklenecek. 
+#   pdf çevirici her 100 sayfayı gruplandırıp tek kitap olarak kaydetmek için kullanılacak.
+# Halen hataları ve eksikleri olabilir. Gğrdüğüm tüm hatalrı gidermeye çalıştım.
+# Optimize edilmemiştir. İçerisinde halen gereksiz veya fazladan kod bulunabilir..
+# Fikir: Dissconnectted.  Kodlayan: Gemini. :)
+# 
+#############################################
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 import os
@@ -9,7 +20,7 @@ NOVELS_DIR = "novels"
 STATE_FILE = "readnovel_state.json"
 LINE_HEIGHT = 20 
 
-# Temalar (Aynı Kaldı)
+# Tema color
 THEMES = {
     "light": {
         "bg": "white",
@@ -39,7 +50,7 @@ class NovelReaderApp:
     def __init__(self, master):
         self.master = master
         master.title("Read Novel")
-        master.geometry("1000x600")
+        master.geometry("1144x600")
 
         self.novels_path = NOVELS_DIR
         self.novel_data = {}  
@@ -67,7 +78,7 @@ class NovelReaderApp:
         
         # 1. Okunan novelin adını gösteren etiket
         self.novel_title_label = ttk.Label(self.top_controls_frame, text="Novel Seçilmedi", font=("Arial", 14, "bold"))
-        self.novel_title_label.pack(side=tk.LEFT, padx=20, pady=2)
+        self.novel_title_label.pack(side=tk.LEFT, padx=10, pady=2)
         
         # Sağ tarafa yaslı butonlar için çerçeve
         self.button_align_frame = ttk.Frame(self.top_controls_frame)
@@ -85,7 +96,7 @@ class NovelReaderApp:
         self.content_frame.grid_rowconfigure(0, weight=1)
 
         self.left_frame = ttk.Frame(self.content_frame, relief=tk.SUNKEN)
-        self.left_frame.grid(row=0, column=0, sticky="nsew", padx=(20, 5)) 
+        self.left_frame.grid(row=0, column=0, sticky="nsew", padx=(5, 5)) 
         self.left_frame.grid_rowconfigure(0, weight=1)
         self.left_frame.grid_columnconfigure(0, weight=1)
 
@@ -101,8 +112,7 @@ class NovelReaderApp:
         self.novel_list_scrollbar = ttk.Scrollbar(self.novel_list_tab)
         self.novel_list_scrollbar.grid(row=0, column=1, sticky="ns")
 
-        self.novel_list_box = tk.Listbox(self.novel_list_tab, exportselection=False, font=("Arial", 11),
-                                         yscrollcommand=self.novel_list_scrollbar.set, highlightthickness=0)
+        self.novel_list_box = tk.Listbox(self.novel_list_tab, exportselection=False, font=("Arial", 11), yscrollcommand=self.novel_list_scrollbar.set, highlightthickness=0)
         self.novel_list_box.grid(row=0, column=0, sticky="nsew")
         self.novel_list_box.bind('<<ListboxSelect>>', self.on_novel_select)
         
@@ -117,8 +127,7 @@ class NovelReaderApp:
         self.text_area_scrollbar = ttk.Scrollbar(self.reader_tab)
         self.text_area_scrollbar.grid(row=0, column=1, sticky="ns")
         
-        self.text_area = tk.Text(self.reader_tab, wrap=tk.WORD, font=("Arial", 12), state=tk.DISABLED,
-                                 yscrollcommand=self.text_area_scrollbar.set, padx=20)
+        self.text_area = tk.Text(self.reader_tab, wrap=tk.WORD, font=("Arial", 13), state=tk.DISABLED, yscrollcommand=self.text_area_scrollbar.set, padx=20,pady=20)
         self.text_area.grid(row=0, column=0, sticky="nsew")
         
         self.text_area_scrollbar.config(command=self.text_area.yview)
@@ -357,7 +366,7 @@ class NovelReaderApp:
             # Bu novel için kayıtlı bir "son okunan" bölüm yoksa, okuyucuyu temizle
             # self.clear_reader_and_controls() # TEMİZLEME YERİNE İLK BÖLÜMÜ YÜKLE
             
-            # Eğer kayıtlı ilerleme yoksa, TR sekmesindeki ilk bölümü otomatik yükle
+            # YENİ EKLENTİ: Eğer kayıtlı ilerleme yoksa, TR sekmesindeki ilk bölümü otomatik yükle
             tr_chapters = self.novel_data.get(novel_name, {}).get('tr', [])
             
             if tr_chapters:
@@ -432,7 +441,7 @@ class NovelReaderApp:
         except IndexError:
             return
 
-        # Yüklemeden önce, eğer farklı bir bölüm açıksa, o bölümün pozisyonunu kaydet (sadece bölüm bilgisi).
+        # YENİ KONTROL: Yüklemeden önce, eğer farklı bir bölüm açıksa, o bölümün pozisyonunu kaydet (sadece bölüm bilgisi).
         if self.current_novel and self.current_chapter_file and self.current_chapter_file != chapter_file:
             self.save_state(silent=True) 
 
