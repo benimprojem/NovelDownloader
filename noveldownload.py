@@ -1,11 +1,11 @@
 ############################################
 # NovelDovnload.py
-# ver. 0.9.5
-# 30.10.2025
+# ver. 0.9.7
+# 06.11.2025
 # indirme ve çeviri işlemlerini yapar. 
 # Halen hataları ve eksikleri olabilir. Gördüğüm tüm hataları gidermeye çalıştım.
 # Optimize edilmemiştir. İçerisinde halen gereksiz veya fazladan kod bulunabilir..
-# Fikir: Dissconnectted.  Kodlayan: Gemini. :)
+# Edit: D'ssconnecTed.  Kodlayan: Gemini. :)
 # 
 #############################################
 import os
@@ -90,9 +90,9 @@ def get_total_chapters(novel_base_url):
         # Kitabın türü: {genres} <div class="meta box mt-1 p-10"><p><strong>Genres :</strong> <a href="/genres/xianxia" title="Read Xianxia Manga"> Xianxia,</a> .../ tüm <a ların içeiği alına bilir.. genelde birden fazladır.
         
         
-        # Bu bilgileri öncelikle buraya. novel_adı/en/chpter_0000.txt olarak kaydet, Eğer Dosya varsa güncelle..
+        # Bu bilgileri öncelikle, novel_adı/en/chpter_0000.txt olarak kaydet, Eğer Dosya varsa güncelle..
             #Kayıt sıralaması:
-            # Kitabın adı : {novel_name}
+            # Kitabın adı : {_clear_name(novel_name)}
             # Yazar : {novel_author}
             # Durum : {status}
             # Toplam bölüm: {count_text}
@@ -258,12 +258,12 @@ def extract_novel_content(soup):
         
         # Satır sonlarını ve boşlukları normalize et
         text = re.sub(r'\r\n?', '\n', text)
-        text = re.sub(r'\n{3,}', '\n\n', text)
-        text = re.sub(r'[ \t]{2,}', ' ', text)
+        text = re.sub(r'\n{3,}', '\n\n\n', text)
+        text = re.sub(r'[ \t]{2,}', '\n\n', text)
         lines = text.split('\n')
         lines = [line.strip() for line in lines]
         text = '\n'.join(lines)
-        text = re.sub(r'\n{2,}', '\n', text)
+        text = re.sub(r'\n{2,}', '\n\n', text)
         
         cleaned = text.strip()
         
@@ -293,45 +293,7 @@ def extract_novel_name(soup):
         return title.strip()
     except Exception:
         return "Bilinmeyen Novel"
-'''        
-def find_novel_base_url(chapter_url):
-    # Kaba tahmin: URL'nin son chapter-XXXX kısmını kaldır.
-    # Örn: https://.../novel-name/chapter-10/ -> https://.../novel-name/
-    parts = chapter_url.split('/')
-    # Eğer son parça 'chapter-' ile başlıyorsa, onu at.
-    if parts[-1].startswith('chapter-'):
-        return '/'.join(parts[:-1]) + '/'
-    # Eğer chapter linki değilse, bir önceki seviyeye dön
-    return '/'.join(parts[:-1])
 
-def get_total_chapters(novel_base_url):
-    # Novelin ana sayfasından toplam bölüm sayısını çeker.
-    print(f"Toplam bölüm sayısı için ana sayfa kontrol ediliyor: {novel_base_url}")
-    soup = fetch_page(novel_base_url)
-    if not soup:
-        print("Hata: Ana sayfa çekilemedi, toplam bölüm sayısı belirlenemedi.")
-        return 0
-    
-    try:
-        # <p><strong>Chapters: </strong> <span>4720</span></p> yapısını ara
-        strong_tag = soup.find('strong', string=lambda t: t and 'Chapters:' in t)
-        
-        if strong_tag and strong_tag.parent:
-            # strong'un kardeşi olan span etiketini bul
-            span_tag = strong_tag.parent.find('span')
-            
-            if span_tag:
-                count_text = span_tag.get_text(strip=True)
-                if count_text.isdigit():
-                    print(f"Başarılı: Toplam bölüm sayısı: {count_text}")
-                    return int(count_text)
-        
-        print("Uyarı: Toplam bölüm sayısı bilgisi ('Chapters: XX') sayfada bulunamadı. 0 olarak ayarlandı.")
-        return 0
-    except Exception as e:
-        print(f"Toplam bölüm sayısı çekilirken hata oluştu: {e}")
-        return 0        
-    '''
 # GÜNCELLENDİ: total_chapters parametresi eklendi
 def save_progress(novel_dir, chapter_number, current_url, total_chapters=0):
     ##İlerlemeyi novel klasörüne progress.json olarak yazar.
@@ -373,7 +335,7 @@ def load_progress(novel_dir, print_message=False):
                 short_url = current_url.split('/')[-1] if '/' in current_url else current_url
                 if len(short_url) > 50:
                     short_url = short_url[:47] + "..."
-                #print("_____________________________________________________________________________________")
+                
                 # Toplam bölüm sayısını da göster
                 print(f"Mevcut ilerleme: bölüm={chapter_num}, toplam={total_chapters}, url=/{short_url}")
             
@@ -714,21 +676,17 @@ def show_translation_menu(novel_dir):
                 control = Control()
                 start_keyboard_listener(control)
                 
-                #print("\nÇeviri başlıyor. [Duraklatmak için [P] - [Durdurmak için [S] tuşuna basın)")
                 print("_____________________________________________________________________________________")
                 translated = translate_chapters(novel_dir, items, control, start_idx, total, source_lang, target_lang)
                 if translated == -1:
                     return
                 print(f"\nÇeviri tamamlandı. {translated} bölüm çevrildi.")
                 return
-        
-        print("\nÇevrilecek bölümleri seçin:")
-        print("    [1] Tek bölüm ]  [2] Bölüm aralığı ]  [3] Tüm bölümleri ]  [M] Ana menüye dön ]")
-        #print("2. Bölüm aralığı  ")
-        #print("3. Tüm bölümleri  ")
-        #print("M. Ana menüye dön ")
-        
-        choice = input("    [ Seçiminiz: [1] [2] [3] [M] ]:").strip()
+        # Soru kısmını atlattım geri getirmek için aşağıdaki #  leri ve  choice = "3" sil.
+        #print("\n    Çevrilecek bölümleri seçin:")
+        #print("    [1] Tek bölüm ]  [2] Bölüm aralığı ]  [3] Tüm bölümleri ]  [M] Ana menüye dön ]")
+        #choice = input("    [ Seçiminiz: [1] [2] [3] [M] ]:").strip()
+        choice = "3"
         if choice.lower() == 'm':
             print("Ana menüye dönülüyor...")
             return
@@ -849,7 +807,7 @@ def choose_novel_menu():
     for i, novel_data in enumerate(novels, 1):
         total_info = f"/{novel_data['total_chapters']}" if novel_data['total_chapters'] > 0 else ""
         print(f"{i}. {novel_data['name']} (Çevrilmemiş Bölüm: {novel_data['untranslated_count']}{total_info})")
-    
+    print("__________________________________________________________________________________")
     while True:
         try:
             choice = input("\nÇevrilecek Noveli seçin (1-{}) veya çıkış için [Q]: ".format(len(novels))).strip().lower()
@@ -879,11 +837,12 @@ def show_global_translation_menu():
 
 def show_main_menu():
     print("\n███████████████████ Ana Menü ███████████████████")
-    print("|  D - Yeni İndirme Başlat")
-    print("|  C - Kayıtlı İndirmelere Devam Et")
-    print("|  T - Kayıtlı Novel Çevir")
-    print("|  Q - Çıkış")
-    choice = input("Seçiminizi yapın: ").strip().lower()
+    print("█  D - Yeni İndirme Başlat")
+    print("█  C - Kayıtlı İndirmelere Devam Et")
+    print("█  T - Kayıtlı Novel Çevir")
+    print("█  Q - Çıkış")
+    print("█_______________________________________________\n")
+    choice = input("█__ Seçiminizi yapın: ").strip().lower()
     print("________________________________________________\n")
     return choice
 
@@ -935,7 +894,7 @@ def start_keyboard_listener(control):
     def keyboard_listener():
         try:
             import msvcrt
-            print("=====================================================================================")
+            #print("=====================================================================================")
             print("      Kontroller: [P]-Duraklat]  [R]-Devam]   [S]-Durdur]  [T]-Ana Menü]")
             print("_____________________________________________________________________________________")
             while not control.stop_event.is_set():
@@ -1024,7 +983,7 @@ def main():
                     
                     # Sayfa sınırı
                     if page_limit > 0 and pages_downloaded >= page_limit:
-                        print(f"Sayfa sınırına ulaşıldı ({page_limit} sayfa). İlerleme kaydediliyor...")
+                        print(f"Tüm sayfalar indirildi. ({page_limit} sayfa). İlerleme kaydediliyor...")
                         # total_chapters bilgisini kaydet
                         save_progress(novel_dir, chapter_number, current_url, total_chapters)
                         break
@@ -1120,7 +1079,7 @@ def main():
                 display_name = novel_name[:60] + ('...' if len(novel_name) > 60 else '')
                 total_chapters_display = f" -- Toplam: {novel['total_chapters']}" if novel['total_chapters'] > 0 else ""
                 print(f"{i+1}. {display_name} (İndirilen: {novel['downloaded_count']}{total_chapters_display})")
-            print("████████████████████████████████████████████████████████████████████████████████████")
+            print("____________________________________________________________________________________")
 
             try:
                 choice = int(input("Devam etmek istediğiniz romanın numarasını girin: ")) - 1
@@ -1273,4 +1232,3 @@ if __name__ == "__main__":
         import traceback
         print("\nBeklenmeyen hata:", e)
         traceback.print_exc()
-
