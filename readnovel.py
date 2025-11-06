@@ -1,10 +1,10 @@
 ############################################
 # NovelDovnload.py için NovelReader.py
-# ver. 0.9.6
-# 30.10.2025
+# ver. 0.9.7
+# 06.11.2025
 # Pdf çevirici gelecekte eklenecek. 
-#   pdf çevirici her 100 sayfayı gruplandırıp tek kitap olarak kaydetmek için kullanılacak.
-# Halen hataları ve eksikleri olabilir. Gğrdüğüm tüm hatalrı gidermeye çalıştım.
+# pdf çevirici her 100 sayfayı gruplandırıp tek kitap olarak kaydetmek için kullanılacak.
+# Halen hataları ve eksikleri olabilir. Gördüğüm tüm hataları gidermeye çalıştım.
 # Optimize edilmemiştir. İçerisinde halen gereksiz veya fazladan kod bulunabilir..
 # Edit: D'ssconnecTed.  Kodlayan: Gemini. :)
 # 
@@ -50,7 +50,7 @@ class NovelReaderApp:
     def __init__(self, master):
         self.master = master
         master.title("Read Novel")
-        master.geometry("1144x600")
+        master.geometry("1040x630")
 
         self.novels_path = NOVELS_DIR
         self.novel_data = {}  
@@ -67,6 +67,10 @@ class NovelReaderApp:
         
         self.setup_ui()
         self.apply_theme(self.current_theme)
+        
+        # YENİ: Klavye olaylarını bağlama
+        self.master.bind('<Key>', self.on_key_press)
+        
         # load_novels_from_dir, novel listesini doldurur ve load_last_read'i tetikler
         self.load_novels_from_dir(initial_load=True) 
         self.master.protocol("WM_DELETE_WINDOW", self.on_closing)
@@ -227,6 +231,50 @@ class NovelReaderApp:
         self.state['theme'] = new_theme
         self.save_state(silent=True)
         
+    # --- YENİ: Klavye Kısayolları İşlemi ---
+    def on_key_press(self, event):
+        # Sadece "Okuyucu" sekmesi seçiliyken ve bir bölüm açıkken çalışsın.
+        if self.left_notebook.index(self.left_notebook.select()) != 1 or not self.current_chapter_file:
+            return
+
+        key = event.keysym
+
+        # Bölümler arasında geçiş
+        if key == 'Right':
+            # Sağ ok tuşu: İleri
+            self.change_chapter(1)
+            return
+
+        if key == 'Left':
+            # Sol ok tuşu: Geri
+            self.change_chapter(-1)
+            return
+
+        # Dikey kaydırma çubuğunu hareket ettirme
+        # Ok tuşlarına hassas kaydırma ataması
+        scroll_amount = 5 # Kaç satır kaydırılacağı
+
+        if key == 'Down':
+            # Aşağı ok tuşu
+            self.text_area.yview_scroll(scroll_amount, "units")
+            return
+
+        if key == 'Up':
+            # Yukarı ok tuşu
+            self.text_area.yview_scroll(-scroll_amount, "units")
+            return
+
+        if key == 'Prior': # Page Up
+            # Sayfa Yukarı tuşu
+            self.text_area.yview_scroll(-1, "pages")
+            return
+
+        if key == 'Next': # Page Down
+            # Sayfa Aşağı tuşu
+            self.text_area.yview_scroll(1, "pages")
+            return
+            
+    
     def toggle_read_controls(self, is_reading):
         """Okuma modunda sayfalama butonlarını açar/kapatır."""
         state = tk.NORMAL if is_reading else tk.DISABLED
@@ -632,4 +680,3 @@ if __name__ == "__main__":
     root = tk.Tk()
     app = NovelReaderApp(root)
     root.mainloop()
-
