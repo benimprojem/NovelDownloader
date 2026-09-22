@@ -352,107 +352,210 @@ DTTranslator = None
 GTTranslator = None
 TRANSLATOR_BACKEND = None
 
+# ============================================================
+# GOOGLE TRANSLATE
+# ============================================================
+
 try:
-    from deep_translator import GoogleTranslator as DTTranslator
-    TRANSLATOR_BACKEND = "deep"
-except ImportError:
+    from googletrans import Translator as GTTranslator
+
+    TRANSLATOR_BACKEND = "google"
+
+except Exception as e:
+
+    GTTranslator = None
+    TRANSLATOR_BACKEND = None
+
+    print("Google Translate kütüphanesi yüklenemedi.")
+    print(f"Import hatası: {e}")
+    print()
+    print("Kurulum için:")
+    print("python -m pip install -U googletrans")
+    
+    
+def translate_text_en_to_tr(text, control=None, source_lang='en', target_lang='tr', chapter_num=None):
+    """
+    Metni Google Translate ile çevirir.
+
+    Kurallar:
+    - Uzun metinleri parçalara böler.
+    - Her parça en fazla 3 kez denenir.
+    - 3 denemede de başarısız olursa parçanın ORİJİNALİ kullanılır.
+    - Başarısız parça nedeniyle bölüm durmaz.
+    - Sonraki parçaya mutlaka geçilir.
+    - Böylece hiçbir parça boş bırakılmaz.
+    """
+
+    if GTTranslator is None:
+        print("Google Translate kullanılamıyor.")
+        return text
+
     try:
-        from googletrans import Translator as GTTranslator
-        TRANSLATOR_BACKEND = "google"
-    except ImportError:
-        print(
-            "Çeviri kütüphanesi bulunamadı. "
-            "'pip install deep-translator' veya "
-            "'pip install googletrans==4.0.0-rc1' yükleyin."
-        )
+        translator = GTTranslator()
 
-def translate_text_en_to_tr(
-    text,
-    control=None,
-    source_lang="en",
-    target_lang="tr",
-    chapter_num=None,
-):
-    """Metni seçili çeviri backend'i ile çevirir."""
-    if not text:
-        return ""
-
-    if TRANSLATOR_BACKEND is None:
-        print("Çeviri yapılamıyor: uygun çeviri kütüphanesi yüklü değil.")
-        return None
-
-    try:
-        if TRANSLATOR_BACKEND == "deep":
-            translator = DTTranslator(source=source_lang, target=target_lang)
-
-            def do_translate(chunk):
-                return translator.translate(chunk)
-
+        # ---------------------------------------------------------
+        # METNİ PARÇALARA AYIR
+        # ---------------------------------------------------------
+        if len(text) > 4500:
+            chunks = _split_chunks(text)
         else:
-            translator = GTTranslator()
+            chunks = [text]
 
-            def do_translate(chunk):
-                result = translator.translate(
-                    chunk,
-                    src=source_lang,
-                    dest=target_lang,
-                )
-                return result.text if result else None
+        result = []
 
-        chunks = _split_chunks(text, max_length=4500)
-        translated_parts = []
         total_chunks = len(chunks)
 
-        for i, chunk in enumerate(chunks, 1):
+        # ---------------------------------------------------------
+        # HER PARÇAYI AYRI AYRI ÇEVİR
+        # ---------------------------------------------------------
+        for i, chunk in enumerate(chunks):
+
+            # Durdurma kontrolü
             if control and control.stop_event.is_set():
                 return None
 
-            if control:
+            # Duraklatma kontrolü
+            if control and not control.pause_event.is_set():
                 control.pause_event.wait()
-                if control.stop_event.is_set():
-                    return None
+
+            chunk_number = i + 1
 
             if chapter_num:
-                message = (
-                    f"\rBölüm {chapter_num} - "
-                    f"Parça {i}/{total_chunks} çevriliyor..."
+                print(
+                    f"Bölüm {chapter_num} - "
+                    f"Parça {chunk_number}/{total_chunks} çevriliyor..."
                 )
             else:
-                message = f"\rParça {i}/{total_chunks} çevriliyor..."
+                print(
+                    f"Parça {chunk_number}/{total_chunks} çevriliyor..."
+                )
 
-            sys.stdout.write(message)
-            sys.stdout.flush()
+            # -----------------------------------------------------
+            # ÖNEMLİ:
+            # Başlangıç değeri ORİJİNAL PARÇA.
+            #
+            # Çeviri başarısız olursa bu değer korunacak.
+            # Böylece parça ASLA boş kalmayacak.
+            # -----------------------------------------------------
+            translated_chunk = chunk
+            translation_success = False
 
-            translated_chunk = None
-            for attempt in range(1, 4):
+            max_retries = 3
+
+            # -----------------------------------------------------
+            # 3 DENEME
+            # -----------------------------------------------------
+            for attempt in range(1, max_retries + 1):
+
+                # Durdurma kontrolü
+                if control and control.stop_event.is_set():
+                    return None
+
+                # Duraklatma kontrolü
+                if control and not control.pause_event.is_set():
+                    control.pause_event.wait()
+
                 try:
-                    translated_chunk = do_translate(chunk)
-                    if translated_chunk:
+
+                    # Google Translate isteği
+                    response = translator.translate(
+                        chunk,
+                        src=source_lang,
+                        dest=target_lang
+                    )
+
+                    if response and response.text:
+                        translated_chunk = response.text
+                        translation_success = True
                         break
+
                 except Exception as e:
-                    if attempt == 3:
-                        print(f"\nÇeviri parçası hatası: {e}")
-                    else:
-                        time.sleep(2)
 
-            # Bir parçanın çevirisi başarısızsa sessizce İngilizce bırakmak
-            # yerine bölümü başarısız kabul et; böylece yarım çeviri kaydedilmez.
-            if not translated_chunk:
-                sys.stdout.write("\r" + " " * 100 + "\r")
-                sys.stdout.flush()
-                return None
+                    error_text = str(e)
 
-            translated_parts.append(translated_chunk)
-            time.sleep(0.5)
+                    print(
+                        f"Çeviri parçası hatası "
+                        f"(deneme {attempt}/{max_retries}): {error_text}"
+                    )
 
-        sys.stdout.write("\r" + " " * 100 + "\r")
-        sys.stdout.flush()
-        return "\n".join(translated_parts)
+                    # Son deneme değilse bekle
+                    if attempt < max_retries:
+
+                        # Rate limit durumunda daha uzun bekle
+                        if (
+                            "too many requests" in error_text.lower()
+                            or "429" in error_text
+                            or "server error" in error_text.lower()
+                        ):
+                            wait_time = 5 * attempt
+                        else:
+                            wait_time = 3 * attempt
+
+                        print(
+                            f"Tekrar denenecek... "
+                            f"{wait_time} saniye bekleniyor."
+                        )
+
+                        # Beklerken durdurma kontrolünü de yap
+                        for _ in range(wait_time * 10):
+                            if control and control.stop_event.is_set():
+                                return None
+
+                            time.sleep(0.1)
+
+            # -----------------------------------------------------
+            # 3 DENEME DE BAŞARISIZSA
+            # ORİJİNAL PARÇA KULLANILACAK
+            # -----------------------------------------------------
+            if not translation_success:
+
+                print(
+                    f"Bölüm {chapter_num if chapter_num else ''} "
+                    f"Parça {chunk_number}/{total_chunks} "
+                    f"3 denemede çevrilemedi."
+                )
+
+                print(
+                    "Bu parça orijinal haliyle kaydedilecek ve "
+                    "sonraki parçaya geçilecek."
+                )
+
+                # translated_chunk zaten ORİJİNAL chunk
+                translated_chunk = chunk
+
+            # -----------------------------------------------------
+            # PARÇAYI SONUCA EKLE
+            #
+            # Başarılı veya başarısız olması fark etmez.
+            # ASLA boş bırakılmayacak.
+            # -----------------------------------------------------
+            result.append(translated_chunk)
+
+            # -----------------------------------------------------
+            # Google'a arka arkaya çok hızlı istek göndermeyelim.
+            # -----------------------------------------------------
+            if chunk_number < total_chunks:
+                time.sleep(1.2)
+
+        # ---------------------------------------------------------
+        # TÜM PARÇALARI BİRLEŞTİR
+        # ---------------------------------------------------------
+        final_text = "\n".join(result)
+
+        # Güvenlik:
+        # Sonuç nedense boşsa orijinal metni döndür.
+        if not final_text.strip():
+            return text
+
+        return final_text
 
     except Exception as e:
-        print(f"\nÇeviri hatası: {e}")
-        return None
 
+        print(f"Çeviri genel hatası: {e}")
+
+        # Genel hata durumunda bile metni kaybetme.
+        return text
+        
 def list_untranslated_chapters(novel_dir):
     en_dir = os.path.join(novel_dir, source_lang)
     tr_dir = os.path.join(novel_dir, target_lang)
