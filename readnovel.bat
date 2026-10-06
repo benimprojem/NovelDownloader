@@ -1,1 +1,1 @@
-py readnovel.py
+pythonw readnovel-v1.4.pyw
