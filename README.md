@@ -1,188 +1,406 @@
-# Roman İndirici ve Çevirici
+# Read Novel
 
-Bu uygulama, web sitelerinden roman bölümlerini indirmenize, indirilen bu bölümleri farklı dillere çevirmenize ve tüm bu süreçleri kolayca yönetmenize olanak tanıyan kapsamlı bir araçtır. Kullanıcı dostu menü tabanlı arayüzü sayesinde, roman indirme ve çeviri işlemlerini adım adım gerçekleştirebilirsiniz.
+Python ve Tkinter ile geliştirilmiş masaüstü **novel indirme, çeviri ve
+okuma uygulaması**.
+
+Uygulama, daha önce ayrı çalışan `NovelDovnload_3.py` indirme/çeviri
+kodunu grafik arayüzlü `readnovel-v1.4.pyw` uygulamasına entegre eder.
+Böylece novel indirme ve çeviri işlemleri arka planda devam ederken
+kayıtlı noveller ve bölümler uygulama içerisinden okunabilir.
+
+> **Durum:** Geliştirme aşamasında. Uygulama kullanılabilir durumdadır
+> ancak bazı sitelerin HTML yapısına ve çeviri servislerinin çalışma
+> biçimine bağlı sınırlamalar bulunabilir.
+
+------------------------------------------------------------------------
 
 ## Özellikler
 
--   **Roman İndirme**: Belirtilen bir web adresinden (URL) roman bölümlerini otomatik olarak indirir. İndirme işlemi sırasında sayfa limiti belirleyerek kontrol sağlayabilirsiniz.
--   **Bölüm Çevirisi**: İndirilen roman bölümlerini istediğiniz hedef dile çevirir. Çeviri işlemi, her bölüm için ayrı ayrı yapılır ve çevrilen metinler düzenli bir şekilde kaydedilir.
--   **İndirmeye Devam Etme**: Yarım kalan veya kesintiye uğrayan roman indirme işlemlerine kaldığınız yerden sorunsuz bir şekilde devam etmenizi sağlar. Uygulama, her romanın ilerlemesini otomatik olarak kaydeder.
--   **Çeviriye Devam Etme**: Benzer şekilde, yarım kalan çeviri işlemlerine de kaldığınız yerden devam edebilirsiniz. Uygulama, hangi bölümlerin çevrildiğini takip eder.
--   **İlerleme Takibi**: İndirilen ve çevrilen bölümlerin sayısını anlık olarak takip edebilir, böylece projenizin genel durumunu görebilirsiniz.
--   **Durdurma Fonksiyonu**: Hem indirme hem de çeviri işlemleri sırasında, klavyeden 'S' tuşuna basarak işlemi güvenli bir şekilde durdurabilir ve ana menüye geri dönebilirsiniz. Bu, beklenmedik durumlar veya yanlış seçimler için esneklik sağlar.
+### 📥 Novel indirme
 
-## Nasıl Kullanılır?
+-   İlk bölüm URL'sinden indirme başlatma.
+-   İndirilecek bölüm sayısını belirleme.
+-   `0` girildiğinde mevcut downloader mantığına göre tüm bölümleri
+    indirme.
+-   Daha önce yarım kalmış indirmeye devam etme.
+-   İndirme işlemini duraklatma/devam ettirme.
+-   İndirmeyi durdurma.
+-   İndirme işleminin arka planda ayrı thread üzerinde çalışması.
+-   İndirme sırasında:
+    -   mevcut bölüm,
+    -   toplam ilerleme,
+    -   ilerleme çubuğu,
+    -   işlem durumu,
+    -   son işlemler arayüzde gösterilir.
 
-Uygulamayı kullanmaya başlamak için aşağıdaki adımları izleyin:
+### 🌐 Otomatik çeviri
 
-### Kurulum
+-   İngilizce (`en`) bölümleri Türkçeye (`tr`) çevirme.
+-   Daha önce çevrilmiş bölümleri tekrar çevirmeme.
+-   Çevrilmemiş bölüm sayısını gösterme.
+-   Çeviri işlemini arka planda yürütme.
+-   Çeviri ilerlemesini arayüzde gösterme.
+-   `translate_progress.json` üzerinden çeviri ilerlemesini koruma.
 
-1.  **Python Kurulumu**: Bilgisayarınızda Python 3.x kurulu olduğundan emin olun. Python'ı [resmi web sitesinden](https://www.python.org/downloads/) indirebilirsiniz.
-2.  **Bağımlılıkların Kurulumu**: Uygulamanın çalışması için gerekli olan Python kütüphanelerini kurmanız gerekmektedir. Terminal veya komut istemcisini açın ve aşağıdaki komutu çalıştırın:
+Çeviri altyapısı mevcut downloader içerisindeki Google Translate
+desteğini kullanır.
 
-    ```bash
-    pip install requests beautifulsoup4 googletrans-py
-    ```
-    *   `requests`: Web sayfalarını indirmek için kullanılır.
-    *   `beautifulsoup4`: İndirilen HTML içeriğini ayrıştırmak ve roman bölümlerini çıkarmak için kullanılır.
-    *   `googletrans-py`: Roman bölümlerini farklı dillere çevirmek için Google Translate API'sini kullanır.
+### 📚 Novel listesi
 
-### Uygulamayı Çalıştırma
+-   `novels` klasöründeki noveller otomatik olarak algılanır.
+-   Novel kartları ızgara şeklinde gösterilir.
+-   Liste:
+    -   yukarıdan aşağı,
+    -   alan genişliği dolduğunda sağa doğru ilerler.
+-   Yatay ve dikey kaydırma desteklenir.
+-   Novel kartlarının boyutları eşittir.
+-   Her novel için indirilen/çevirilen bölüm bilgileri gösterilir.
+-   Yeni indirilen noveller yeniden liste tarandığında otomatik olarak
+    görünür.
 
-`noveldownload.py` dosyasının bulunduğu dizine gidin ve aşağıdaki komutu çalıştırın:
+### 📖 Bölüm listesi
 
-```bash
-python noveldownload.py
+Bölümler ayrı bir bölüm ekranında gösterilir.
+
+-   Orijinal (`en`) ve çeviri (`tr`) bölümleri ayrı listelenir.
+-   Bölümler ızgara düzeninde gösterilir.
+-   Sıralama yukarıdan aşağı, ardından sağa doğru devam eder.
+-   Yatay ve dikey kaydırma desteklenir.
+-   Çok fazla bölüm olduğunda gereksiz miktarda Tkinter widget'ının aynı
+    anda oluşturulmaması için liste görünür alanı esas alacak şekilde
+    yönetilir.
+-   Aktif/son okunan bölüm açıldığında ilgili bölümün bulunduğu konuma
+    gidilir.
+
+### 📖 Okuma ekranı
+
+-   Tam genişlikte okuma alanı.
+-   Orijinal ve Türkçe bölümler arasında geçiş.
+-   Son okunan novel ve bölümün saklanması.
+-   Uygulama yeniden açıldığında kaldığın bölüme dönme.
+-   Klavye ile bölüm gezinme desteği.
+
+### 🎨 Tema
+
+Mevcut uygulamada açık ve koyu tema desteği bulunur.
+
+Tema tercihi `readnovel_state.json` içerisinde saklanır.
+
+------------------------------------------------------------------------
+
+## Dosya yapısı
+
+Uygulamanın mevcut klasör yapısı özellikle korunmaktadır:
+
+``` text
+reader/
+├── readnovel-v1.4.pyw
+├── NovelDovnload_3.py
+├── readnovel_state.json
+└── novels/
+    ├── Novel A/
+    │   ├── en/
+    │   │   ├── chapter_0001.txt
+    │   │   ├── chapter_0002.txt
+    │   │   └── ...
+    │   ├── tr/
+    │   │   ├── chapter_0001.txt
+    │   │   ├── chapter_0002.txt
+    │   │   └── ...
+    │   ├── progress.json
+    │   └── translate_progress.json
+    └── Novel B/
+        └── ...
 ```
 
-Uygulama başladığında, size aşağıdaki ana menü seçeneklerini sunacaktır:
+### Dosyaların görevleri
 
-1.  **Yeni Roman İndir**:
-    *   Bu seçeneği seçtiğinizde, indirmek istediğiniz romanın URL'sini girmeniz istenecektir.
-    *   İsteğe bağlı olarak, kaç bölüm indirmek istediğinizi belirten bir sayfa limiti de girebilirsiniz.
-    *   Uygulama, belirtilen URL'den başlayarak roman bölümlerini sırayla indirecek ve her bölümü ayrı bir metin dosyası olarak kaydedecektir.
-2.  **Mevcut İndirmeye Devam Et**:
-    *   Daha önce indirmeye başladığınız ancak tamamlamadığınız romanları listeler.
-    *   Devam etmek istediğiniz romanı listeden seçerek, indirme işlemine kaldığınız en son bölümden devam edebilirsiniz. Her romanın yanında "Son Bölüm" bilgisi gösterilir.
-3.  **Kayıtlı Romanları Çevir**:
-    *   İndirilmiş romanlarınızı listeler. Her romanın yanında çevrilmemiş bölüm sayısı gösterilir.
-    *   Çevirmek istediğiniz romanı seçtikten sonra, hedef çeviri dilini (örn. "en" for English, "tr" for Turkish) girmeniz istenecektir.
-    *   Uygulama, seçilen romanın çevrilmemiş bölümlerini hedef dile çevirecek ve çevrilen metinleri romanın kendi dizini içinde ilgili dil klasörüne kaydedecektir.
+  Dosya / klasör              Görevi
+  --------------------------- -----------------------------------
+  `readnovel-v1.4.pyw`             Ana grafik arayüz ve okuyucu
+  `NovelDovnload_3.py`        Novel indirme ve çeviri motoru
+  `readnovel_state.json`      Okuma ve uygulama durum bilgileri
+  `novels/`                   İndirilen novellerin ana klasörü
+  `en/`                       Orijinal bölümler
+  `tr/`                       Türkçe çevrilmiş bölümler
+  `progress.json`             İndirme ilerlemesi
+  `translate_progress.json`   Çeviri ilerlemesi
 
-## Ana Fonksiyonlar
+**Önemli:** `NovelDovnload_3.py`, `readnovel-v1.4.pyw` ile aynı klasörde
+bulunmalıdır.
 
-Uygulamanın temel işlevlerini yerine getiren ana fonksiyonlar aşağıda açıklanmıştır:
+------------------------------------------------------------------------
 
--   `main()`: Uygulamanın ana yürütme noktasıdır. Ana menüyü görüntüler, kullanıcıdan seçim alır ve seçime göre ilgili fonksiyonları çağırır. Uygulamanın genel akışını yönetir.
--   `show_main_menu()`: Ana menü seçeneklerini (Yeni Roman İndir, Mevcut İndirmeye Devam Et, Kayıtlı Romanları Çevir, Çıkış) kullanıcıya sunar ve kullanıcının seçimini döndürür.
--   `download_novel(novel_url, page_limit=None)`: Verilen `novel_url` adresinden roman bölümlerini indirir. `page_limit` parametresi ile indirilecek maksimum bölüm sayısı belirlenebilir. İndirilen her bölüm, romanın kendi dizininde bir metin dosyası olarak saklanır.
--   `show_translation_menu()`: Çeviri menüsünü görüntüler. Kullanıcının çevirmek istediği romanı ve hedef dili seçmesini sağlar. `translate_chapters` fonksiyonunu çağırarak çeviri işlemini başlatır.
--   `translate_chapters(novel_dir, target_language, start_chapter=1)`: Belirtilen `novel_dir` dizinindeki roman bölümlerini `target_language` diline çevirir. `start_chapter` parametresi ile çeviriye hangi bölümden başlanacağı belirlenebilir. Çeviri sırasında 'S' tuşuna basılarak durdurulabilir.
--   `list_saved_novels()`: Uygulama tarafından kaydedilmiş tüm romanların bir listesini döndürür. Her roman için adı, dizin yolu ve en son kaydedilen bölüm numarası (`current_chapter`) bilgilerini içerir. Bu bilgi, `progress.json` dosyasından alınır.
--   `list_downloaded_novels()`: Yerel olarak indirilmiş tüm romanların bir listesini döndürür. Her roman için adı, dizin yolu ve çevrilmemiş bölüm sayısı (`untranslated_count`) bilgilerini içerir. Bu bilgi, `list_untranslated_chapters` fonksiyonu kullanılarak hesaplanır.
--   `save_progress(novel_dir, chapter_number, current_url)`: Belirli bir romanın (`novel_dir`) indirme ilerlemesini (`chapter_number` ve `current_url`) `progress.json` dosyasına kaydeder. Bu, uygulamanın kaldığı yerden devam etmesini sağlar.
--   `list_untranslated_chapters(novel_dir)`: Belirtilen `novel_dir` dizinindeki roman için henüz çevrilmemiş olan bölümlerin bir listesini döndürür. Bu liste, çeviri menüsünde romanların yanında gösterilen "Çevrilmemiş Bölüm" sayısını hesaplamak için kullanılır.
--   `fetch_page(url)`: Verilen URL'den web sayfasının içeriğini (HTML) çeker. Web kazıma işleminin temelini oluşturur.
--   `find_next_page_url(soup)`: BeautifulSoup nesnesi (`soup`) kullanarak bir web sayfasındaki "sonraki sayfa" bağlantısının URL'sini bulmaya çalışır. Roman bölümleri arasında gezinmek için kullanılır.
+## Kurulum
 
-## Dosya Yapısı
+### 1. Python
 
-Uygulama, indirilen romanları ve ilerleme bilgilerini aşağıdaki gibi bir dizin yapısında saklar:
+Python 3.x gereklidir.
 
-```
-.
-├── noveldownload.py          # Ana uygulama dosyası
-├── README.md                 # Bu README dosyası
-└── novels/                   # İndirilen tüm romanların saklandığı ana dizin
-    ├── Roman_Adi_1/          # İlk romanın dizini
-    │   ├── progress.json     # Romanın indirme ilerlemesi (son bölüm, URL)
-    │   ├── en/               # İngilizce çevirilerin saklandığı dizin
-    │   │   ├── chapter_001.txt
-    │   │   └── chapter_002.txt
-    │   └── tr/               # Türkçe çevirilerin saklandığı dizin (örnek)
-    │       ├── chapter_001.txt
-    │       └── chapter_002.txt
-    └── Roman_Adi_2/          # İkinci romanın dizini
-            ...
+Windows'ta `.pyw` dosyası Python ile ilişkilendirilmişse:
+
+``` text
+readnovel-v1.4.pyw
 ```
 
-## Notlar
+dosyasına çift tıklayarak uygulama başlatılabilir.
 
--   Çeviri işlemi sırasında 'S' tuşuna basarak işlemi durdurabilir ve ana menüye dönebilirsiniz.
--   Uygulama, roman ilerlemesini her romanın kendi dizinindeki `progress.json` dosyasında saklar.
--   Çevrilen bölümler, roman dizini içinde `[dil_kodu]` (örn. `en`, `tr`) adında bir klasörde saklanır.
--   Web sitelerinin yapısı değiştiğinde `fetch_page` ve `find_next_page_url` fonksiyonlarının güncellenmesi gerekebilir.
+İlişkilendirme yoksa:
 
-
-
-
-# 📖 NovelReader - Yerel Roman Okuyucu ve Yönetim Uygulaması
-
-**NovelReader**, yerel diskinizde depolanan romanları (novel) düzenli bir şekilde listelemek ve okumak için tasarlanmış basit ve kullanıcı dostu bir masaüstü uygulamasıdır. `tkinter` kullanılarak Python ile geliştirilmiştir ve düşük kaynak tüketimiyle hızlı bir okuma deneyimi sunar.
-
-## ✨ Temel Özellikler
-
-* **Düzenli Klasör Yapısı:** Romanları `novels/[Roman Adı]/[en/tr]/` yapısında yöneterek çok dilli içeriği destekler.
-* **Bölüm Bazlı Okuma Akışı:** Sol alttaki butonlar ile sayfalar arasında değil, bir sonraki/önceki bölüme kolayca geçiş yapabilirsiniz.
-* **Tam Bölüm Gösterimi:** Okuyucu sekmesi, bölüm içeriğinin tamamını kaydırılabilir tek bir metin kutusunda gösterir.
-* **Sekmeli Dil Yönetimi:** Sağdaki bölüm listesi, **Orijinal (en)**, **Çeviri (tr)** ve ileride eklenecek **PDF** sekmeleri ile dil seçimini ve bölüm listesini netleştirir.
-* **Koyu/Açık Tema Desteği:** Tek tıkla tema değişimi ile göz yorgunluğunu azaltabilirsiniz.
-* **Otomatik Kayıt:** Okuma durumu (hangi romanda hangi bölümü okuduğunuz) otomatik olarak kaydedilir ve bir sonraki açılışta kalınan yerden devam edilir.
-* **Bağımsız Kontrol Çubuğu:** Ana butonlar, uygulamanın üst kısmında bağımsız bir kontrol çubuğunda yer alır.
-
-## 📁 Klasör Yapısı (Kurulum)
-
-Uygulamanın düzgün çalışması için, tüm roman dosyalarınızın aşağıdaki hiyerarşiye uygun bir klasör içinde bulunması gerekmektedir. Varsayılan olarak, uygulamanın çalıştığı dizinde `novels` adında bir ana klasör arar.
-```
-/
-├── readnovel.py # Ana uygulama dosyası
-├── readnovel_state.json # Okuma durumunun kaydedildiği dosya
-├── novels/ # Romanların ana klasörü
-    │├── RomanAdı_1/ # Her roman için bir klasör
-        │├── en/ # İngilizce/Orijinal bölümler
-         │└── chapter_0001.txt
-         │└── chapter_0002.txt
-        ││└── tr/ # Türkçe/Çeviri bölümler (isteğe bağlı)
-         ││└── chapter_0001.txt
-    │└── RomanAdı_2/
-        │└── en/
-         │── chapter_0001.txt
+``` bash
+python readnovel-v1.4.pyw
 ```
 
-## 🛠️ Kurulum ve Çalıştırma
+ile de çalıştırılabilir.
 
-Bu uygulama saf Python ve standart `tkinter` kütüphanesi ile geliştirilmiştir. Harici bir paket (library) yüklemeniz gerekmez.
+### 2. Gerekli Python paketleri
 
-1.  **Python Kurulumu:** Bilgisayarınızda Python 3'ün kurulu olduğundan emin olun.
-2.  **Dosyaları İndirme:** `readnovel.py` dosyasını indirin.
-3.  **Roman Klasörünü Oluşturma:** Uygulama dosyasının bulunduğu dizinde `novels` adında bir klasör oluşturun ve romanlarınızı yukarıdaki yapıya göre yerleştirin.
-4.  **Uygulamayı Başlatma:** Terminal/Komut İstemi üzerinden uygulamayı çalıştırın:
+Downloader aşağıdaki paketleri kullanır:
 
-    ```bash
-    python readnovel.py
-    ```
+``` bash
+python -m pip install requests
+python -m pip install beautifulsoup4
+python -m pip install googletrans
+```
 
-## 🖥️ Kullanım Kılavuzu
+Kurulum sırasında kullanılan Google Translate paketi sisteminizde farklı
+bir sürüm gerektiriyorsa, downloader dosyasındaki mevcut import/çeviri
+altyapısına uygun sürüm kullanılmalıdır.
 
-### 1. Ana Ekran
+------------------------------------------------------------------------
 
-Uygulama açıldığında, ekran üç ana bölüme ayrılır:
+## Kullanım
 
-| Bölüm | Konum | İçerik |
-| :--- | :--- | :--- |
-| **Üst Kontrol Çubuğu** | Üstte, sağa hizalı | `Novel (Klasör Seçimi)`, `Kaydet`, `⭐ (Tema)`, `PDF` butonları. |
-| **Sol İçerik Alanı** | Sol, Geniş | **Novel Listesi** ve **Okuyucu** sekmeleri. |
-| **Sağ Bölüm Listesi** | Sağ, Dar | Bölüm dosyalarının listelendiği **Orijinal**, **Çeviri** ve **PDF** sekmeleri. |
+### Yeni novel indirmek
 
-### 2. Roman Yükleme ve Seçimi
+1.  `Downloads` sekmesini açın.
+2.  **İlk bölüm URL** alanına novelin ilk bölüm URL'sini girin.
+3.  **Bölüm sayısı** alanına indirilecek bölüm sayısını yazın.
+    -   `10` → 10 bölüm
+    -   `100` → 100 bölüm
+    -   `0` → tüm bölümler
+4.  **Yeni İndirme** butonuna basın.
+5.  İndirme arka planda devam eder.
 
-* **Novel Listesi Sekmesi:** Uygulama açılışta `novels` klasöründeki romanları listeler.
-* **Roman Seçimi:** Soldaki listeden bir romana tıklayarak sağdaki Bölüm Listesi'ni o romana ait bölümlerle doldurursunuz.
-* **Klasör Değiştirme:** Eğer romanlarınız başka bir yerdeyse, üstteki **Novel** butonuna tıklayarak yeni ana `novels` klasörünü seçebilirsiniz.
+Uygulamayı kullanmaya, novel listesine geçmeye veya mevcut bölümleri
+okumaya devam edebilirsiniz.
 
-### 3. Bölüm Okuma
+### Yarım kalan indirmeye devam etmek
 
-1.  **Dil Seçimi:** Sağdaki Bölüm Listesi alanından **Orijinal (en)** veya **Çeviri (tr)** sekmesini seçin.
-2.  **Bölüm Açma:** İstenen bölüm dosyasına (örneğin `chapter_0001.txt`) **çift tıklayın**.
-3.  **Okuyucu Sekmesi:** Uygulama otomatik olarak **Okuyucu** sekmesine geçer ve bölümün **tamamını** yükler. Metin kutusunun kaydırma çubuğunu kullanarak bölümü okuyabilirsiniz.
+1.  `Downloads` listesinden noveli seçin.
+2.  **Seçileni Devam Ettir** butonuna basın.
 
-### 4. İlerleme ve Navigasyon
+Downloader'ın mevcut `progress.json` kaydından devam edilir.
 
-* **İleri/Geri Butonları:** Okuyucu sekmesinin altında bulunan **`<< Geri`** ve **`İleri >>`** butonları, okuduğunuz dildeki **bir önceki veya bir sonraki bölüme** geçiş yapar.
-* **Otomatik Kayıt:** Bölüm değiştirdiğinizde veya uygulamayı kapattığınızda, okuma durumunuz (`readnovel_state.json` dosyasına) sessizce kaydedilir.
-* **Manuel Kayıt:** Üst çubuktaki **Kaydet** butonu ile istediğiniz zaman manuel kayıt yapabilirsiniz. (Bu işlemde bilgilendirme mesajı görünür).
+### Çeviri yapmak
 
-## 💡 İpuçları
+1.  `Downloads` listesinden çevrilecek noveli seçin.
+2.  **Çevir** butonuna basın.
+3.  Uygulama çevrilmemiş bölümleri belirler.
+4.  Çeviri arka planda devam eder.
+5.  İlerleme bilgisi ekranda gösterilir.
 
-* **Tema Değişimi:** Üst çubukta bulunan **⭐** butonuna tıklayarak Açık ve Koyu tema arasında geçiş yapabilirsiniz.
-* **Dosya Formatı:** Bölüm dosyaları düz metin (`.txt`) formatında ve `utf-8` kodlamasında olmalıdır.
-* **Çeviri Sekmesi:** `Çeviri (tr)` sekmesi, ilgili roman klasörünün içindeki `tr` alt klasöründeki dosyaları listeler.
+Çevrilmiş bölümler tekrar çevrilmez.
 
-## 🛑 Bilinen Kısıtlamalar
+### Novel okumak
 
-* **PDF Desteği:** Sağdaki `PDF` sekmesi henüz işlevsel değildir ve ileride geliştirilecektir.
-* **Arama/Filtreleme:** Novel listesi veya Bölüm listesi için henüz arama (filtreleme) özelliği mevcut değildir.
+1.  `Novel Listesi` sekmesine geçin.
+2.  Novel kartını açın.
+3.  `Bölümler` sekmesinden bölüm seçin.
+4.  `Okuma` sekmesinden okuyun.
 
----
+Son okuma konumu uygulama tarafından kaydedilir.
 
-**© [2025] [cem/DissConnected]**
+------------------------------------------------------------------------
+
+## Arka planda çalışma
+
+İndirme ve çeviri işlemleri ana Tkinter arayüzünü kilitlememek için ayrı
+thread'lerde çalıştırılır.
+
+Bu sayede işlem devam ederken:
+
+-   novel listesine geçilebilir,
+-   bölüm listesi incelenebilir,
+-   mevcut bölümler okunabilir,
+-   uygulama durumu takip edilebilir.
+
+İşlem sırasında `Downloads` ekranındaki durum alanı hangi işlemin
+yürütüldüğünü gösterir.
+
+------------------------------------------------------------------------
+
+## Veri güvenliği ve mevcut kayıtlar
+
+Uygulama mevcut novel kayıtlarının yapısını değiştirmemek üzere
+tasarlanmıştır.
+
+Özellikle:
+
+``` text
+novels/
+Novel Adı/
+en/
+tr/
+progress.json
+translate_progress.json
+```
+
+yapısı korunur.
+
+`readnovel-v1.4.pyw` uygulaması klasör yollarını kendi bulunduğu klasöre göre
+belirler. Böylece uygulama farklı bir çalışma dizininden başlatılsa bile
+`novels` klasörünü yanlış yerde aramaması amaçlanmıştır.
+
+------------------------------------------------------------------------
+
+## İsimlendirme
+
+Novel klasör isimleri downloader içerisindeki mevcut isim temizleme
+mekanizması kullanılarak oluşturulur.
+
+Downloader'ın `_clear_name()` fonksiyonu:
+
+-   bazı gereksiz ifadeleri temizler,
+-   dosya sistemi açısından sorun oluşturabilecek karakterleri kaldırır,
+-   novel adını güvenli klasör adına dönüştürür.
+
+Novel adı üzerine uygulama tarafından ayrıca yapay bir prefix/suffix
+eklenmez.
+
+Bölüm dosyaları ise mevcut downloader formatında saklanır:
+
+``` text
+chapter_0001.txt
+chapter_0002.txt
+chapter_0003.txt
+...
+```
+
+------------------------------------------------------------------------
+
+## Desteklenen kaynak siteler
+
+Downloader belirli bir sitenin HTML yapısına göre içerik seçicileri
+kullanmaktadır. Bu nedenle her novel sitesi otomatik olarak
+desteklenmeyebilir.
+
+Özellikle:
+
+-   bölüm URL yapısı,
+-   toplam bölüm sayısının sayfada bulunma şekli,
+-   bölüm metninin HTML içerisindeki konumu,
+-   sonraki bölüm bağlantısının yapısı
+
+kaynak siteye göre değişebilir.
+
+Yeni bir site desteği gerektiğinde temel olarak `NovelDovnload_3.py`
+içerisindeki:
+
+``` text
+find_novel_base_url()
+get_total_chapters()
+extract_novel_name()
+extract_novel_content()
+find_next_page_url()
+```
+
+fonksiyonlarının ilgili sitenin yapısına göre uyarlanması gerekir.
+
+------------------------------------------------------------------------
+
+## Bilinen sınırlamalar
+
+-   Bazı web siteleri bot/otomatik istekleri engelleyebilir.
+-   Site HTML yapısı değişirse bölüm çıkarma veya sonraki bölüm bulma
+    işlemi çalışmayabilir.
+-   Google Translate tarafında istek sınırı veya geçici erişim problemi
+    oluşabilir.
+-   Çok büyük novel listelerinde bölüm arayüzü performansını korumak
+    için görünür alan odaklı listeleme kullanılır.
+-   Çeviri hızı kullanılan çeviri servisinin yanıt süresine bağlıdır.
+-   Uygulama şu anda öncelikle Windows masaüstü kullanımı düşünülerek
+    geliştirilmiştir.
+
+------------------------------------------------------------------------
+
+## Proje bileşenleri
+
+``` text
+readnovel-v1.4.pyw
+        │
+        ├── Grafik arayüz
+        ├── Novel listesi
+        ├── Bölüm listesi
+        ├── Okuyucu
+        └── Arka plan işlemleri
+                 │
+                 ▼
+        NovelDovnload_3.py
+                 │
+                 ├── Web sayfası indirme
+                 ├── Bölüm çıkarma
+                 ├── Bölüm kaydetme
+                 ├── İndirme ilerlemesi
+                 └── Çeviri
+```
+
+`readnovel-v1.4.pyw`, downloader kodunu ayrı bir kopyaya dönüştürmek yerine
+aynı klasördeki:
+
+``` text
+NovelDovnload_3.py
+```
+
+dosyasını dinamik olarak yükler.
+
+Bu nedenle iki Python dosyasının aynı klasörde bulunması önemlidir.
+
+------------------------------------------------------------------------
+
+## Geliştirme
+
+Proje halen geliştirme aşamasındadır.
+
+Öncelikli geliştirme alanları:
+
+-   daha fazla kaynak site desteği,
+-   çeviri altyapısının geliştirilmesi,
+-   bölüm listesi performansının daha da iyileştirilmesi,
+-   okuyucu özelliklerinin geliştirilmesi,
+-   indirme ve çeviri hata yönetiminin geliştirilmesi,
+-   kullanıcı arayüzünün iyileştirilmesi.
+
+------------------------------------------------------------------------
+
+## Katkı
+
+Hata bildirirken mümkünse aşağıdaki bilgileri ekleyin:
+
+-   kullanılan kaynak site,
+-   bölüm URL'si,
+-   hata mesajı,
+-   hangi işlem sırasında hata oluştuğu,
+-   mümkünse ilgili ekran görüntüsü.
+
+Kaynak sitenin HTML yapısı değişmişse ilgili bölüm yapısı da
+belirtilirse sorunun tespit edilmesi kolaylaşır.
+
+------------------------------------------------------------------------
+
+## Lisans
+
+Bu sürüm için README içerisinde özel bir lisans belirtilmemiştir.
+------------------------------------------------------------------------
+
+## Proje adı
+
+**Read Novel**
+
+İndirme motoru:
+
+**NovelDovnload_3.py**
+
+Okuyucu:
+
+**readnovel-v1.4.pyw**
