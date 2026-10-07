@@ -1,10 +1,10 @@
 ############################################
 # NovelDovnload.py için NovelReader.py
-# ver. 0.9.6
+# ver. 1.0.4  7.10.26
 # 30.10.2025
-# Halen hataları ve eksikleri olabilir. Gğrdüğüm tüm hatalrı gidermeye çalıştım.
+# Halen hataları ve eksikleri olabilir. Gördüğüm tüm hataları gidermeye çalıştım.
 # Optimize edilmemiştir. İçerisinde halen gereksiz veya fazladan kod bulunabilir..
-# Edit: D'ssconnecTed.  Kodlayan: Gemini. :)
+# Edit: D'ssconnecTed.  Kodlayan: Gemini, ChatGPT :)
 # 
 #############################################
 import tkinter as tk
@@ -342,7 +342,7 @@ class GridChapterList:
 class NovelReaderApp:
     def __init__(self, master):
         self.master = master
-        master.title("Read Novel v1.4")
+        master.title("Read Novel v1.0.4")
         master.geometry("1040x630")
 
         self.novels_path = NOVELS_DIR
